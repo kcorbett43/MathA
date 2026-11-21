@@ -5,11 +5,9 @@ import { colors } from '@/lib/theme';
 type NumberPadProps = {
   onDigit: (digit: string) => void;
   onBackspace: () => void;
-  onSubmit: () => void;
   onMinus?: () => void;
   /** Show ± / minus key (integer answers that may be negative). */
   allowNegative?: boolean;
-  submitDisabled?: boolean;
 };
 
 const DIGIT_ROWS = [
@@ -21,10 +19,8 @@ const DIGIT_ROWS = [
 export function NumberPad({
   onDigit,
   onBackspace,
-  onSubmit,
   onMinus,
   allowNegative = true,
-  submitDisabled = false,
 }: NumberPadProps) {
   return (
     <View style={styles.pad}>
@@ -49,20 +45,11 @@ export function NumberPad({
             onPress={() => onMinus?.()}
           />
         ) : (
-          <Key label=" " accessibilityLabel="Empty" onPress={() => {}} muted />
+          <View style={[styles.key, styles.mutedKey]} />
         )}
         <Key label="0" accessibilityLabel="Digit 0" onPress={() => onDigit('0')} />
         <Key label="⌫" accessibilityLabel="Backspace" onPress={onBackspace} />
       </View>
-
-      <Key
-        label="Submit"
-        accessibilityLabel="Submit answer"
-        onPress={onSubmit}
-        disabled={submitDisabled}
-        primary
-        wide
-      />
     </View>
   );
 }
@@ -71,49 +58,17 @@ type KeyProps = {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
-  disabled?: boolean;
-  primary?: boolean;
-  muted?: boolean;
-  wide?: boolean;
 };
 
-function Key({
-  label,
-  accessibilityLabel,
-  onPress,
-  disabled = false,
-  primary = false,
-  muted = false,
-  wide = false,
-}: KeyProps) {
-  if (muted) {
-    return <View style={[styles.key, styles.mutedKey, wide && styles.wide]} />;
-  }
-
+function Key({ label, accessibilityLabel, onPress }: KeyProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.key,
-        wide && styles.wide,
-        primary && styles.submitKey,
-        disabled && styles.disabledKey,
-        pressed && !disabled && styles.keyPressed,
-      ]}
+      style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
     >
-      <Text
-        style={[
-          styles.keyText,
-          primary && styles.submitKeyText,
-          disabled && styles.disabledKeyText,
-          wide && styles.wideText,
-        ]}
-      >
-        {label}
-      </Text>
+      <Text style={styles.keyText}>{label}</Text>
     </Pressable>
   );
 }
@@ -128,25 +83,14 @@ const styles = StyleSheet.create({
   },
   key: {
     flex: 1,
-    minHeight: 54,
+    minHeight: 58,
     borderRadius: 12,
     backgroundColor: colors.chip,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wide: {
-    flex: undefined,
-    width: '100%',
-    minHeight: 52,
-  },
   mutedKey: {
     backgroundColor: 'transparent',
-  },
-  submitKey: {
-    backgroundColor: colors.primary,
-  },
-  disabledKey: {
-    opacity: 0.45,
   },
   keyPressed: {
     opacity: 0.75,
@@ -155,14 +99,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: colors.text,
-  },
-  wideText: {
-    fontSize: 18,
-  },
-  submitKeyText: {
-    color: '#FFFFFF',
-  },
-  disabledKeyText: {
-    color: '#FFFFFF',
   },
 });

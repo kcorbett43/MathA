@@ -81,9 +81,7 @@ export default function ResultsScreen() {
             <Text style={styles.scoreLabel}>Correct answers</Text>
           </View>
 
-          <Text style={styles.detail}>
-            {attempted} submitted · score is raw correct count
-          </Text>
+          <Text style={styles.detail}>Score is raw correct count (exact match to advance)</Text>
         </View>
 
         <View style={styles.actions}>

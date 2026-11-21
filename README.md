@@ -12,7 +12,7 @@ Timed mental-math drills for iOS (and Android) via **Expo Go**. No Mac or Xcode 
 
 Durations for every mode: **1 / 2 / 3 / 4 / 5 minutes**.
 
-Score = **raw correct count**. Submit advances to the next question; only correct answers increment the score. There is no skip button.
+Score = **raw correct count**. As soon as the typed answer matches, score increments and the next question appears (OpenQuant-style). Wrong digits stay until corrected — no Submit or skip button.
 
 ## Prerequisites
 
@@ -48,7 +48,7 @@ npx expo start --web
 ## App map
 
 - **Home** — pick mode + duration, start a drill, or open the dashboard
-- **Drill** — timed session with a mode-appropriate integer keypad (includes −)
+- **Drill** — timed session with a mode-appropriate integer keypad (includes −); auto-advances on correct answer
 - **Results** — shows raw correct count; session is saved locally
 - **Dashboard** — mode picker + All / Year / Month / Week / Day filters (default **Month**); every score plotted spaced by calendar day
 

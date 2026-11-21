@@ -43,7 +43,6 @@ export default function DrillScreen() {
   const [question, setQuestion] = useState<Question>(() => generateQuestion(mode));
   const [answer, setAnswer] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
-  const [attemptedCount, setAttemptedCount] = useState(0);
   const finishedRef = useRef(false);
 
   useEffect(() => {
@@ -67,42 +66,43 @@ export default function DrillScreen() {
       pathname: '/results',
       params: {
         correct: String(correctCount),
-        attempted: String(attemptedCount),
+        attempted: String(correctCount),
         duration: String(durationMinutes),
         mode,
         sessionId,
       },
     });
-  }, [secondsLeft, correctCount, attemptedCount, durationMinutes, mode]);
+  }, [secondsLeft, correctCount, durationMinutes, mode]);
+
+  function commitAnswer(next: string) {
+    if (secondsLeft === 0 || finishedRef.current) return;
+
+    // OpenQuant-style: exact string match advances immediately.
+    if (next !== '' && next === question.answer) {
+      setCorrectCount((n) => n + 1);
+      setAnswer('');
+      setQuestion(generateQuestion(mode));
+      return;
+    }
+
+    setAnswer(next);
+  }
 
   function appendDigit(digit: string) {
-    setAnswer((prev) => {
-      if (prev === '0') return digit;
-      if (prev === '-0') return `-${digit}`;
-      if (prev.replace('-', '').length >= MAX_ANSWER_LEN) return prev;
-      return prev + digit;
-    });
+    let next = answer;
+    if (answer === '0') next = digit;
+    else if (answer === '-0') next = `-${digit}`;
+    else if (answer.replace('-', '').length >= MAX_ANSWER_LEN) next = answer;
+    else next = answer + digit;
+    commitAnswer(next);
   }
 
   function toggleMinus() {
-    setAnswer((prev) => {
-      if (prev.startsWith('-')) return prev.slice(1);
-      return `-${prev}`;
-    });
+    commitAnswer(answer.startsWith('-') ? answer.slice(1) : `-${answer}`);
   }
 
-  function submitAnswer() {
-    if (!answer || answer === '-' || secondsLeft === 0) return;
-
-    // Product scope: submit advances; only correct increments score.
-    const isCorrect = answer === question.answer;
-    setAttemptedCount((n) => n + 1);
-    if (isCorrect) {
-      setCorrectCount((n) => n + 1);
-    }
-
-    setAnswer('');
-    setQuestion(generateQuestion(mode));
+  function backspace() {
+    commitAnswer(answer.slice(0, -1));
   }
 
   const minutes = Math.floor(secondsLeft / 60);
@@ -150,9 +150,7 @@ export default function DrillScreen() {
           allowNegative
           onDigit={appendDigit}
           onMinus={toggleMinus}
-          onBackspace={() => setAnswer((prev) => prev.slice(0, -1))}
-          onSubmit={submitAnswer}
-          submitDisabled={!answer || answer === '-' || secondsLeft === 0}
+          onBackspace={backspace}
         />
       </View>
     </SafeAreaView>

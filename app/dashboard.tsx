@@ -97,7 +97,7 @@ export default function DashboardScreen() {
                       {dayKey(s.completedAt)} · {s.durationMinutes} min
                     </Text>
                   </View>
-                  <Text style={styles.rowAttempted}>{s.attempted} submitted</Text>
+                  <Text style={styles.rowAttempted}>{s.score} correct</Text>
                 </View>
               ))}
             </View>
