@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
 import { colors } from '@/lib/theme';
 
@@ -6,7 +14,6 @@ type NumberPadProps = {
   onDigit: (digit: string) => void;
   onBackspace: () => void;
   onMinus?: () => void;
-  /** Show ± / minus key (integer answers that may be negative). */
   allowNegative?: boolean;
 };
 
@@ -16,7 +23,7 @@ const DIGIT_ROWS = [
   ['7', '8', '9'],
 ] as const;
 
-export function NumberPad({
+function NumberPadComponent({
   onDigit,
   onBackspace,
   onMinus,
@@ -54,6 +61,8 @@ export function NumberPad({
   );
 }
 
+export const NumberPad = memo(NumberPadComponent);
+
 type KeyProps = {
   label: string;
   accessibilityLabel: string;
@@ -61,11 +70,29 @@ type KeyProps = {
 };
 
 function Key({ label, accessibilityLabel, onActivate }: KeyProps) {
+  // Web: pointerdown updates on finger/mouse down (avoids RN-web touch lag/bugs).
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.key}>
+        <button
+          type="button"
+          aria-label={accessibilityLabel}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            onActivate();
+          }}
+          style={webKeyStyle}
+        >
+          {label}
+        </button>
+      </View>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      // Fire on press-in so digits appear immediately (not on release).
       onPressIn={onActivate}
       hitSlop={4}
       style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
@@ -74,6 +101,23 @@ function Key({ label, accessibilityLabel, onActivate }: KeyProps) {
     </Pressable>
   );
 }
+
+const webKeyStyle = {
+  width: '100%',
+  height: '100%',
+  minHeight: 56,
+  margin: 0,
+  border: 'none',
+  borderRadius: 12,
+  background: colors.chip,
+  color: colors.text,
+  fontSize: 24,
+  fontWeight: 600,
+  cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none' as const,
+};
 
 const styles = StyleSheet.create({
   pad: {
@@ -90,7 +134,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chip,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+    overflow: 'hidden',
+  } satisfies ViewStyle,
   mutedKey: {
     backgroundColor: 'transparent',
   },

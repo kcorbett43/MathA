@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DrillTimer } from '@/components/DrillTimer';
 import { NumberPad } from '@/components/NumberPad';
 import { generateQuestion } from '@/lib/generators';
 import { colors } from '@/lib/theme';
@@ -39,54 +40,24 @@ export default function DrillScreen() {
   );
   const totalSeconds = durationMinutes * 60;
 
-  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const [question, setQuestion] = useState<Question>(() => generateQuestion(mode));
   const [answer, setAnswer] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
   const [runId, setRunId] = useState(0);
 
-  const finishedRef = useRef(false);
+  const stoppedRef = useRef(false);
   const answerRef = useRef('');
   const questionRef = useRef(question);
-  const secondsLeftRef = useRef(secondsLeft);
-  const correctCountRef = useRef(correctCount);
-
+  const correctCountRef = useRef(0);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   questionRef.current = question;
-  secondsLeftRef.current = secondsLeft;
-  correctCountRef.current = correctCount;
 
-  // Any leave without an explicit finish (Home / header back) abandons scoring.
-  useEffect(() => {
-    return () => {
-      finishedRef.current = true;
-    };
-  }, []);
+  const isStopped = useCallback(() => stoppedRef.current, []);
 
-  // Timer restarts cleanly when runId changes (initial mount + Reset).
-  useEffect(() => {
-    finishedRef.current = false;
-    setSecondsLeft(totalSeconds);
-    secondsLeftRef.current = totalSeconds;
-
-    const id = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(id);
-          secondsLeftRef.current = 0;
-          return 0;
-        }
-        const next = prev - 1;
-        secondsLeftRef.current = next;
-        return next;
-      });
-    }, 1000);
-
-    return () => clearInterval(id);
-  }, [runId, totalSeconds]);
-
-  useEffect(() => {
-    if (secondsLeft > 0 || finishedRef.current) return;
-    finishedRef.current = true;
+  const finishSession = useCallback(() => {
+    if (stoppedRef.current) return;
+    stoppedRef.current = true;
     const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     router.replace({
       pathname: '/results',
@@ -94,14 +65,14 @@ export default function DrillScreen() {
         correct: String(correctCountRef.current),
         attempted: String(correctCountRef.current),
         duration: String(durationMinutes),
-        mode,
+        mode: modeRef.current,
         sessionId,
       },
     });
-  }, [secondsLeft, durationMinutes, mode]);
+  }, [durationMinutes]);
 
-  function commitAnswer(next: string) {
-    if (secondsLeftRef.current === 0 || finishedRef.current) return;
+  const commitAnswer = useCallback((next: string) => {
+    if (stoppedRef.current) return;
 
     // OpenQuant-style: exact string match advances immediately.
     if (next !== '' && next === questionRef.current.answer) {
@@ -109,7 +80,7 @@ export default function DrillScreen() {
       setCorrectCount(correctCountRef.current);
       answerRef.current = '';
       setAnswer('');
-      const nextQuestion = generateQuestion(mode);
+      const nextQuestion = generateQuestion(modeRef.current);
       questionRef.current = nextQuestion;
       setQuestion(nextQuestion);
       return;
@@ -117,9 +88,9 @@ export default function DrillScreen() {
 
     answerRef.current = next;
     setAnswer(next);
-  }
+  }, []);
 
-  function appendDigit(digit: string) {
+  const appendDigit = useCallback((digit: string) => {
     const current = answerRef.current;
     let next = current;
     if (current === '0') next = digit;
@@ -127,50 +98,46 @@ export default function DrillScreen() {
     else if (current.replace('-', '').length >= MAX_ANSWER_LEN) next = current;
     else next = current + digit;
     commitAnswer(next);
-  }
+  }, [commitAnswer]);
 
-  function toggleMinus() {
+  const toggleMinus = useCallback(() => {
     const current = answerRef.current;
     commitAnswer(current.startsWith('-') ? current.slice(1) : `-${current}`);
-  }
+  }, [commitAnswer]);
 
-  function backspace() {
+  const backspace = useCallback(() => {
     commitAnswer(answerRef.current.slice(0, -1));
-  }
+  }, [commitAnswer]);
 
   function resetDrill() {
-    // Restart in place — do not navigate to results / do not log a score.
-    finishedRef.current = true; // block any in-flight timer completion briefly
+    // Restart in place — do not log a score.
+    stoppedRef.current = false;
     answerRef.current = '';
     setAnswer('');
-    setCorrectCount(0);
     correctCountRef.current = 0;
-    const nextQuestion = generateQuestion(mode);
+    setCorrectCount(0);
+    const nextQuestion = generateQuestion(modeRef.current);
     questionRef.current = nextQuestion;
     setQuestion(nextQuestion);
-    setRunId((n) => n + 1); // remounts timer effect; clears finishedRef
+    setRunId((n) => n + 1);
   }
 
   function goHome() {
     // Abandon without logging a score.
-    finishedRef.current = true;
+    stoppedRef.current = true;
     router.replace('/');
   }
-
-  const minutes = Math.floor(secondsLeft / 60);
-  const secs = secondsLeft % 60;
-  const timeLabel = `${minutes}:${String(secs).padStart(2, '0')}`;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.metaRow}>
-          <View style={styles.metaBlock}>
-            <Text style={styles.metaLabel}>Time</Text>
-            <Text style={[styles.metaValue, secondsLeft <= 10 && styles.urgent]}>
-              {timeLabel}
-            </Text>
-          </View>
+          <DrillTimer
+            totalSeconds={totalSeconds}
+            runId={runId}
+            onTimeUp={finishSession}
+            isStopped={isStopped}
+          />
           <View style={styles.metaBlock}>
             <Text style={styles.metaLabel}>Score</Text>
             <Text style={styles.metaValue}>{correctCount}</Text>
@@ -287,9 +254,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-  },
-  urgent: {
-    color: colors.danger,
   },
   promptBlock: {
     alignItems: 'center',
