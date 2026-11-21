@@ -48,7 +48,7 @@ npx expo start --web
 ## App map
 
 - **Home** — pick mode + duration, start a drill, or open the dashboard
-- **Drill** — timed session with a mode-appropriate integer keypad (includes −); auto-advances on correct answer
+- **Drill** — timed session with a mode-appropriate integer keypad (includes −); auto-advances on correct answer; **Reset** restarts the run without saving a score
 - **Results** — shows raw correct count; session is saved locally
 - **Dashboard** — mode picker + All / Year / Month / Week / Day filters (default **Month**); every score plotted spaced by calendar day
 

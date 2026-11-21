@@ -31,7 +31,7 @@ export function NumberPad({
               key={key}
               label={key}
               accessibilityLabel={`Digit ${key}`}
-              onPress={() => onDigit(key)}
+              onActivate={() => onDigit(key)}
             />
           ))}
         </View>
@@ -42,13 +42,13 @@ export function NumberPad({
           <Key
             label="−"
             accessibilityLabel="Negative sign"
-            onPress={() => onMinus?.()}
+            onActivate={() => onMinus?.()}
           />
         ) : (
           <View style={[styles.key, styles.mutedKey]} />
         )}
-        <Key label="0" accessibilityLabel="Digit 0" onPress={() => onDigit('0')} />
-        <Key label="⌫" accessibilityLabel="Backspace" onPress={onBackspace} />
+        <Key label="0" accessibilityLabel="Digit 0" onActivate={() => onDigit('0')} />
+        <Key label="⌫" accessibilityLabel="Backspace" onActivate={onBackspace} />
       </View>
     </View>
   );
@@ -57,15 +57,17 @@ export function NumberPad({
 type KeyProps = {
   label: string;
   accessibilityLabel: string;
-  onPress: () => void;
+  onActivate: () => void;
 };
 
-function Key({ label, accessibilityLabel, onPress }: KeyProps) {
+function Key({ label, accessibilityLabel, onActivate }: KeyProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
+      // Fire on press-in so digits appear immediately (not on release).
+      onPressIn={onActivate}
+      hitSlop={4}
       style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
     >
       <Text style={styles.keyText}>{label}</Text>
@@ -75,15 +77,15 @@ function Key({ label, accessibilityLabel, onPress }: KeyProps) {
 
 const styles = StyleSheet.create({
   pad: {
-    gap: 10,
+    gap: 8,
   },
   row: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   key: {
     flex: 1,
-    minHeight: 58,
+    minHeight: 56,
     borderRadius: 12,
     backgroundColor: colors.chip,
     alignItems: 'center',
@@ -93,7 +95,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   keyPressed: {
-    opacity: 0.75,
+    backgroundColor: '#D8DEE6',
+    transform: [{ scale: 0.96 }],
   },
   keyText: {
     fontSize: 24,

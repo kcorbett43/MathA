@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NumberPad } from '@/components/NumberPad';
@@ -43,20 +43,39 @@ export default function DrillScreen() {
   const [question, setQuestion] = useState<Question>(() => generateQuestion(mode));
   const [answer, setAnswer] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
-  const finishedRef = useRef(false);
+  const [runId, setRunId] = useState(0);
 
+  const finishedRef = useRef(false);
+  const answerRef = useRef('');
+  const questionRef = useRef(question);
+  const secondsLeftRef = useRef(secondsLeft);
+  const correctCountRef = useRef(correctCount);
+
+  questionRef.current = question;
+  secondsLeftRef.current = secondsLeft;
+  correctCountRef.current = correctCount;
+
+  // Timer restarts cleanly when runId changes (initial mount + Reset).
   useEffect(() => {
+    finishedRef.current = false;
+    setSecondsLeft(totalSeconds);
+    secondsLeftRef.current = totalSeconds;
+
     const id = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(id);
+          secondsLeftRef.current = 0;
           return 0;
         }
-        return prev - 1;
+        const next = prev - 1;
+        secondsLeftRef.current = next;
+        return next;
       });
     }, 1000);
+
     return () => clearInterval(id);
-  }, []);
+  }, [runId, totalSeconds]);
 
   useEffect(() => {
     if (secondsLeft > 0 || finishedRef.current) return;
@@ -65,44 +84,64 @@ export default function DrillScreen() {
     router.replace({
       pathname: '/results',
       params: {
-        correct: String(correctCount),
-        attempted: String(correctCount),
+        correct: String(correctCountRef.current),
+        attempted: String(correctCountRef.current),
         duration: String(durationMinutes),
         mode,
         sessionId,
       },
     });
-  }, [secondsLeft, correctCount, durationMinutes, mode]);
+  }, [secondsLeft, durationMinutes, mode]);
 
   function commitAnswer(next: string) {
-    if (secondsLeft === 0 || finishedRef.current) return;
+    if (secondsLeftRef.current === 0 || finishedRef.current) return;
 
     // OpenQuant-style: exact string match advances immediately.
-    if (next !== '' && next === question.answer) {
-      setCorrectCount((n) => n + 1);
+    if (next !== '' && next === questionRef.current.answer) {
+      correctCountRef.current += 1;
+      setCorrectCount(correctCountRef.current);
+      answerRef.current = '';
       setAnswer('');
-      setQuestion(generateQuestion(mode));
+      const nextQuestion = generateQuestion(mode);
+      questionRef.current = nextQuestion;
+      setQuestion(nextQuestion);
       return;
     }
 
+    answerRef.current = next;
     setAnswer(next);
   }
 
   function appendDigit(digit: string) {
-    let next = answer;
-    if (answer === '0') next = digit;
-    else if (answer === '-0') next = `-${digit}`;
-    else if (answer.replace('-', '').length >= MAX_ANSWER_LEN) next = answer;
-    else next = answer + digit;
+    const current = answerRef.current;
+    let next = current;
+    if (current === '0') next = digit;
+    else if (current === '-0') next = `-${digit}`;
+    else if (current.replace('-', '').length >= MAX_ANSWER_LEN) next = current;
+    else next = current + digit;
     commitAnswer(next);
   }
 
   function toggleMinus() {
-    commitAnswer(answer.startsWith('-') ? answer.slice(1) : `-${answer}`);
+    const current = answerRef.current;
+    commitAnswer(current.startsWith('-') ? current.slice(1) : `-${current}`);
   }
 
   function backspace() {
-    commitAnswer(answer.slice(0, -1));
+    commitAnswer(answerRef.current.slice(0, -1));
+  }
+
+  function resetDrill() {
+    // Restart in place — do not navigate to results / do not log a score.
+    finishedRef.current = true; // block any in-flight timer completion briefly
+    answerRef.current = '';
+    setAnswer('');
+    setCorrectCount(0);
+    correctCountRef.current = 0;
+    const nextQuestion = generateQuestion(mode);
+    questionRef.current = nextQuestion;
+    setQuestion(nextQuestion);
+    setRunId((n) => n + 1); // remounts timer effect; clears finishedRef
   }
 
   const minutes = Math.floor(secondsLeft / 60);
@@ -129,6 +168,15 @@ export default function DrillScreen() {
               {modeLabel(mode)}
             </Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset drill"
+            onPress={resetDrill}
+            hitSlop={8}
+            style={({ pressed }) => [styles.resetBtn, pressed && styles.resetPressed]}
+          >
+            <Text style={styles.resetText}>Reset</Text>
+          </Pressable>
         </View>
 
         <View style={styles.promptBlock}>
@@ -171,6 +219,7 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 8,
   },
@@ -191,6 +240,23 @@ const styles = StyleSheet.create({
   },
   metaMode: {
     fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  resetBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignSelf: 'flex-start',
+  },
+  resetPressed: {
+    backgroundColor: colors.chip,
+  },
+  resetText: {
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
