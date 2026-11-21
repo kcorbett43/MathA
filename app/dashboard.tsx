@@ -77,9 +77,7 @@ export default function DashboardScreen() {
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <ScoreChart scores={filtered} />
-            </ScrollView>
+            <ScoreChart scores={filtered} />
           )}
         </View>
 
