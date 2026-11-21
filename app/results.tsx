@@ -105,14 +105,14 @@ export default function ResultsScreen() {
               <Text style={styles.secondaryText}>Dashboard</Text>
             </Pressable>
           </Link>
-          <Link href="/" asChild>
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-            >
-              <Text style={styles.secondaryText}>Back home</Text>
-            </Pressable>
-          </Link>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go home"
+            onPress={() => router.replace('/')}
+            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+          >
+            <Text style={styles.secondaryText}>Home</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>

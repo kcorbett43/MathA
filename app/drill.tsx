@@ -55,6 +55,13 @@ export default function DrillScreen() {
   secondsLeftRef.current = secondsLeft;
   correctCountRef.current = correctCount;
 
+  // Any leave without an explicit finish (Home / header back) abandons scoring.
+  useEffect(() => {
+    return () => {
+      finishedRef.current = true;
+    };
+  }, []);
+
   // Timer restarts cleanly when runId changes (initial mount + Reset).
   useEffect(() => {
     finishedRef.current = false;
@@ -144,6 +151,12 @@ export default function DrillScreen() {
     setRunId((n) => n + 1); // remounts timer effect; clears finishedRef
   }
 
+  function goHome() {
+    // Abandon without logging a score.
+    finishedRef.current = true;
+    router.replace('/');
+  }
+
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const timeLabel = `${minutes}:${String(secs).padStart(2, '0')}`;
@@ -168,15 +181,26 @@ export default function DrillScreen() {
               {modeLabel(mode)}
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Reset drill"
-            onPress={resetDrill}
-            hitSlop={8}
-            style={({ pressed }) => [styles.resetBtn, pressed && styles.resetPressed]}
-          >
-            <Text style={styles.resetText}>Reset</Text>
-          </Pressable>
+          <View style={styles.actionsCol}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go home"
+              onPress={goHome}
+              hitSlop={8}
+              style={({ pressed }) => [styles.chipBtn, pressed && styles.chipPressed]}
+            >
+              <Text style={styles.chipText}>Home</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset drill"
+              onPress={resetDrill}
+              hitSlop={8}
+              style={({ pressed }) => [styles.chipBtn, pressed && styles.chipPressed]}
+            >
+              <Text style={styles.chipText}>Reset</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.promptBlock}>
@@ -243,19 +267,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  resetBtn: {
+  actionsCol: {
+    gap: 6,
+    alignItems: 'stretch',
+  },
+  chipBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    alignSelf: 'flex-start',
+    alignItems: 'center',
   },
-  resetPressed: {
+  chipPressed: {
     backgroundColor: colors.chip,
   },
-  resetText: {
+  chipText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
