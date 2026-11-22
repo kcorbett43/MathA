@@ -89,7 +89,7 @@ export default function ResultsScreen() {
             accessibilityRole="button"
             onPress={() =>
               router.replace({
-                pathname: '/drill',
+                pathname: '/drill/session',
                 params: { mode, duration: String(durationMinutes) },
               })
             }

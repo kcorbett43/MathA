@@ -34,7 +34,7 @@ export default function QuantReviewScreen() {
   const items: QuantReviewItem[] = payload?.items ?? [];
   const skill = quantSkillById(payload?.skillId ?? skillId);
   const correctCount = items.filter((i) => i.correct).length;
-  const titleLabel = pack?.meta.title ?? skill?.label ?? 'Quant';
+  const titleLabel = pack?.meta.title ?? skill?.label ?? 'Review';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -53,7 +53,7 @@ export default function QuantReviewScreen() {
         >
           {items.length === 0 ? (
             <Text style={styles.empty}>
-              No session to review. Start a Quant Learn unit or Practice skill from Home.
+              No session to review. Open a Learn unit or Practice skill from Home.
             </Text>
           ) : (
             items.map((item, i) => (

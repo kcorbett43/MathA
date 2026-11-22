@@ -22,7 +22,7 @@ export default function QuantLearnLessonScreen() {
             onPress={() => router.replace('/quant/learn')}
             style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
           >
-            <Text style={styles.primaryText}>Back to Learn</Text>
+            <Text style={styles.primaryText}>Back to Collections</Text>
           </Pressable>
         </View>
       </SafeAreaView>

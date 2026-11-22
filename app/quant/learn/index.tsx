@@ -12,10 +12,10 @@ export default function QuantLearnHomeScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
-          <Text style={styles.title}>Learn</Text>
+          <Text style={styles.title}>Collections</Text>
           <Text style={styles.subtitle}>
-            Browse collections, then open a unit. Lesson first, then a mixed drill. All units are
-            open in v1 — finish in any order.
+            Open a collection, then a unit. Lesson first, then a mixed drill. All units are open in
+            v1 — finish in any order.
           </Text>
         </View>
 

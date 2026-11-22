@@ -36,7 +36,7 @@ export default function QuantLearnCollectionScreen() {
             onPress={() => router.replace('/quant/learn')}
             style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
           >
-            <Text style={styles.primaryText}>Back to Learn</Text>
+            <Text style={styles.primaryText}>Back to Collections</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -49,11 +49,11 @@ export default function QuantLearnCollectionScreen() {
         <View style={styles.breadcrumbs} accessibilityRole="header">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Learn home"
+            accessibilityLabel="Collections home"
             onPress={() => router.push('/quant/learn')}
             hitSlop={6}
           >
-            <Text style={styles.crumbLink}>Learn</Text>
+            <Text style={styles.crumbLink}>Collections</Text>
           </Pressable>
           {path.map((node, i) => {
             const isLast = i === path.length - 1;
