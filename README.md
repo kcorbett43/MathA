@@ -2,7 +2,7 @@
 
 Timed mental-math drills for iOS (and Android) via **Expo Go**. No Mac or Xcode required. Scores stay on device.
 
-## Modes
+## Modes (timed mental math)
 
 | Mode | What you practice |
 |------|-------------------|
@@ -13,6 +13,22 @@ Timed mental-math drills for iOS (and Android) via **Expo Go**. No Mac or Xcode 
 Durations for every mode: **1 / 2 / 3 / 4 / 5 minutes**.
 
 Score = **raw correct count**. As soon as the typed answer matches, score increments and the next question appears (OpenQuant-style). Wrong digits stay until corrected — no Submit or skip button.
+
+## Quant (probability)
+
+Separate Home entry — not mixed with timed drills or mental-math Practice.
+
+| Skill | What you practice | Fixed N |
+|-------|-------------------|--------:|
+| **Dice & counting** | Two fair dice; P(sum = k) | 12 |
+| **Urns & conditional** | Without-replacement / conditional draws | 12 |
+| **Expected value** | Fair-die mean, linearity / indicators | 10 |
+
+Untimed. Enter a number or fraction (`11/13`, reduced equivalents, or matching decimals), tap **Submit** — advances whether right or wrong. End **Review** lists each prompt, your answer, and right/wrong (correct answer on misses). No timer, no 3-2-1, no dashboard Elo writes.
+
+Optional **Scratch** opens a finger-draw pad (question stays on top; **Clear** / **Done**). Collapses back to the normal keypad UI. Uses `react-native-signature-canvas` in Expo Go.
+
+Generators are MathA-authored procedural templates (schemas inspired by public MIT Unbluffable quant families; no Jane Street puzzle text).
 
 ## Prerequisites
 
@@ -47,10 +63,11 @@ npx expo start --web
 
 ## App map
 
-- **Home** — pick mode + duration, start a drill, or open the dashboard
+- **Home** — pick mode + duration, start a drill, open **Quant**, or open the dashboard
 - **Drill** — timed session with a mode-appropriate integer keypad (includes −); auto-advances on correct answer; **Reset** restarts without saving; **Home** abandons without saving
 - **Results** — shows raw correct count; session is saved locally
 - **Dashboard** — mode picker + All / Year / Month / Week / Day filters (default **Month**); every score plotted spaced by calendar day
+- **Quant** — skill list → fixed-N session (fraction keypad + Submit) → review (session-local only)
 
 ## Local data
 
