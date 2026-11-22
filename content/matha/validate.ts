@@ -39,6 +39,8 @@ export type ValidatedMatha = {
   manifest: MathaManifest;
   tree: MathaTree | null;
   units: ContentPack[];
+  /** Package-root-relative path → bytes (from ZIP). */
+  assets: Record<string, Uint8Array>;
   issues: ValidationIssue[];
   /** SHA-ish fingerprint of normalized content for same-revision no-op. */
   contentFingerprint: string;
@@ -128,7 +130,7 @@ export function validateParsedPackage(parsed: ParsedMathaPackage): ValidatedMath
   const canonical = units.map((u) => normalizePack(u));
   const contentFingerprint = fingerprintUnits(canonical);
 
-  return { manifest, tree, units: canonical, issues, contentFingerprint };
+  return { manifest, tree, units: canonical, assets, issues, contentFingerprint };
 }
 
 function parseUnitJson(

@@ -42,7 +42,7 @@ async function main() {
 
   for (const name of ['probability', 'biology', 'vocabulary'] as const) {
     const bytes = loadFixture(name);
-    const result = importMathaBytes(bytes, snapshot, { parentCollectionId: null });
+    const result = await importMathaBytes(bytes, snapshot, { parentCollectionId: null });
     assert.equal(result.status, 'installed', `${name}: expected installed, got ${result.status}`);
     assert.ok(result.preview.canInstall, `${name}: canInstall`);
     assert.ok(!hasErrors(result.preview.issues), `${name}: unexpected validation errors`);
@@ -67,6 +67,15 @@ async function main() {
     true,
   );
   assert.equal(gradeAuthoredAnswer('manual', 'anything', undefined).kind, 'manual');
+  const bioPkg = snapshot.packages['pkg.bio.cell'];
+  assert.ok(
+    bioPkg?.assetUris?.['units/pkg.bio.u1-cell/assets/cell.png'],
+    'biology cell.png asset URI',
+  );
+  assert.ok(
+    bioUnit?.lesson?.intro?.includes('![Animal cell](units/pkg.bio.u1-cell/assets/cell.png)'),
+    'biology lesson references cell image',
+  );
 
   const probUnit = snapshot.units['pkg.prob.u1-dice'];
   assert.ok(probUnit?.lesson && probUnit.practice && probUnit.review);
@@ -84,7 +93,7 @@ async function main() {
   section('Reimport: same revision + same content → no-op');
   {
     const bytes = loadFixture('probability');
-    const result = importMathaBytes(bytes, snapshot, { parentCollectionId: null });
+    const result = await importMathaBytes(bytes, snapshot, { parentCollectionId: null });
     assert.equal(result.status, 'noop');
     console.log('OK no-op');
   }
@@ -119,7 +128,7 @@ async function main() {
       questions: [],
     };
 
-    const result = importMathaBytes(bytes, snapshot, null, progress);
+    const result = await importMathaBytes(bytes, snapshot, null, progress);
     assert.equal(result.status, 'installed');
     if (result.status === 'installed') {
       const key = progressKey(
@@ -172,7 +181,7 @@ async function main() {
     });
     const { validated, preview } = prepareImport(bytes, snapshot);
     assert.ok(preview.canInstall);
-    const installed = installPackage(snapshot, validated, preview, null);
+    const installed = await installPackage(snapshot, validated, preview, null);
     assert.equal(installed.status, 'installed');
     if (installed.status === 'installed') {
       snapshot = installed.snapshot;
@@ -187,7 +196,7 @@ async function main() {
   section('Deleted unit → inactive; history kept; return same id reactivates');
   {
     const parsed = parseMathaZip(loadFixture('biology'));
-    parsed.manifest.revision = 2;
+    parsed.manifest.revision = 3;
     delete parsed.units['pkg.bio.u1-cell'];
     parsed.units['pkg.bio.u2-dna'] = {
       meta: {
@@ -224,7 +233,7 @@ async function main() {
       'tree.json': JSON.stringify(parsed.tree),
       'units/pkg.bio.u2-dna/unit.json': JSON.stringify(parsed.units['pkg.bio.u2-dna']),
     });
-    const result = importMathaBytes(bytes, snapshot, null);
+    const result = await importMathaBytes(bytes, snapshot, null);
     assert.equal(result.status, 'installed');
     if (result.status === 'installed') {
       snapshot = result.snapshot;
@@ -234,15 +243,21 @@ async function main() {
     }
     console.log('OK deleted unit marked inactive');
 
-    // Return original unit id in revision 3 → reactivate
+    // Return original unit id in revision 4 → reactivate
     const revive = parseMathaZip(loadFixture('biology'));
-    revive.manifest.revision = 3;
-    const reviveBytes = buildMathaZip({
-      'manifest.json': JSON.stringify(revive.manifest),
-      'tree.json': JSON.stringify(revive.tree),
-      'units/pkg.bio.u1-cell/unit.json': JSON.stringify(revive.units['pkg.bio.u1-cell']),
-    });
-    const revived = importMathaBytes(reviveBytes, snapshot, null);
+    revive.manifest.revision = 4;
+    const reviveFiles: Record<string, Uint8Array> = {
+      'manifest.json': new TextEncoder().encode(JSON.stringify(revive.manifest)),
+      'tree.json': new TextEncoder().encode(JSON.stringify(revive.tree)),
+      'units/pkg.bio.u1-cell/unit.json': new TextEncoder().encode(
+        JSON.stringify(revive.units['pkg.bio.u1-cell']),
+      ),
+    };
+    for (const [path, bytes] of Object.entries(revive.assets)) {
+      reviveFiles[path] = bytes;
+    }
+    const reviveBytes = buildMathaZip(reviveFiles);
+    const revived = await importMathaBytes(reviveBytes, snapshot, null);
     assert.equal(revived.status, 'installed');
     if (revived.status === 'installed') {
       snapshot = revived.snapshot;
@@ -267,7 +282,7 @@ async function main() {
       'tree.json': JSON.stringify(parsed.tree),
       'units/pkg.vocab.u1-gre/unit.json': JSON.stringify(parsed.units['pkg.vocab.u1-gre']),
     });
-    const result = importMathaBytes(bytes, probe, null);
+    const result = await importMathaBytes(bytes, probe, null);
     assert.equal(result.status, 'blocked');
     assert.ok(result.preview.issues.some((i) => i.code === 'revision.downgrade'));
     console.log('OK downgrade blocked');
@@ -291,7 +306,7 @@ async function main() {
         },
       }),
     });
-    const r1 = importMathaBytes(badMix, snapshot, null);
+    const r1 = await importMathaBytes(badMix, snapshot, null);
     assert.equal(r1.status, 'blocked');
     assert.ok(r1.preview.issues.some((i) => i.code === 'practice.mix.sum'));
     console.log('OK mix sum validation');
@@ -321,7 +336,7 @@ async function main() {
         },
       }),
     });
-    const r2 = importMathaBytes(badBasic, snapshot, null);
+    const r2 = await importMathaBytes(badBasic, snapshot, null);
     assert.equal(r2.status, 'blocked');
     assert.ok(r2.preview.issues.some((i) => i.code === 'review.basic.cards'));
     console.log('OK basic card count validation');
@@ -370,7 +385,7 @@ async function main() {
       'tree.json': JSON.stringify(parsed.tree),
       'units/pkg.vocab.u1-gre/unit.json': JSON.stringify(unit),
     });
-    const result = importMathaBytes(bytes, snapshot, { parentCollectionId: 'should-ignore' });
+    const result = await importMathaBytes(bytes, snapshot, { parentCollectionId: 'should-ignore' });
     assert.equal(result.status, 'installed');
     if (result.status === 'installed') {
       snapshot = result.snapshot;
@@ -397,7 +412,7 @@ async function main() {
       }),
     });
     const beforeKeys = Object.keys(snapshot.units).sort().join(',');
-    const result = importMathaBytes(bad, snapshot, null);
+    const result = await importMathaBytes(bad, snapshot, null);
     assert.equal(result.status, 'blocked');
     assert.ok(result.preview.issues.some((i) => i.code === 'unit.empty'));
     assert.equal(Object.keys(snapshot.units).sort().join(','), beforeKeys);
@@ -421,7 +436,7 @@ async function main() {
         },
       }),
     });
-    const result = importMathaBytes(badGen, snapshot, null);
+    const result = await importMathaBytes(badGen, snapshot, null);
     assert.equal(result.status, 'blocked');
     assert.ok(result.preview.issues.some((i) => i.code === 'practice.generator.unknown'));
     console.log('OK unknown generator hard-fails (no silent discard)');
@@ -439,7 +454,7 @@ async function main() {
       'tree.json': JSON.stringify(parsed.tree),
       'units/pkg.vocab.u1-gre/unit.json': JSON.stringify(unit),
     });
-    const result = importMathaBytes(bytes, snapshot, null);
+    const result = await importMathaBytes(bytes, snapshot, null);
     assert.equal(result.status, 'blocked');
     assert.ok(result.preview.issues.some((i) => i.code === 'revision.contentChanged'));
     console.log('OK same revision + changed content blocked');
@@ -470,7 +485,7 @@ async function main() {
       }),
     });
     // Note: folder id matches meta.id
-    const result = importMathaBytes(collision, snapshot, null);
+    const result = await importMathaBytes(collision, snapshot, null);
     assert.equal(result.status, 'blocked');
     assert.ok(result.preview.issues.some((i) => i.code === 'id.collision'));
     console.log('OK id collision blocked');

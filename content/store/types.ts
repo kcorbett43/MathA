@@ -34,6 +34,11 @@ export type InstalledPackage = {
   roots: Array<{ kind: 'collection' | 'unit'; id: string }>;
   /** Fingerprint of installed content for same-revision no-op checks. */
   contentFingerprint?: string;
+  /**
+   * Package-root-relative asset path → local file URI or data URI.
+   * Used to render Markdown images / audio from imported packages.
+   */
+  assetUris?: Record<string, string>;
 };
 
 export type StoreCollection = LearnCollection & {

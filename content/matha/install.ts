@@ -1,5 +1,6 @@
 import { fingerprintUnits, normalizePack } from '@/content/packs/normalize';
 import type { CollectionId, ContentPack, PackId } from '@/content/packs/types';
+import { persistPackageAssets } from '@/content/store/assets';
 import { progressKey } from '@/content/store/ids';
 import { toStoreUnit } from '@/content/store/seed';
 import type {
@@ -178,13 +179,13 @@ export type InstallResult =
  * Returning a previously inactive unit/collection id sets `active: true`
  * and retains progress rows for unchanged (packageId, unitId, itemId) triples.
  */
-export function installPackage(
+export async function installPackage(
   snapshot: ContentStoreSnapshot,
   validated: ValidatedMatha,
   preview: ImportPreview,
   placement: PlacementChoice | null,
   progress?: ProgressStoreSnapshot,
-): InstallResult {
+): Promise<InstallResult> {
   if (!preview.canInstall) {
     return { status: 'blocked', preview };
   }
@@ -197,6 +198,7 @@ export function installPackage(
   const now = new Date().toISOString();
   const packageId = validated.manifest.packageId;
   const prior = next.packages[packageId];
+  const assetUris = await persistPackageAssets(packageId, validated.assets);
 
   const incomingUnitIds = new Set(validated.units.map((u) => u.meta.id));
   const incomingColIds = new Set(validated.tree?.collections.map((c) => c.id) ?? []);
@@ -255,6 +257,7 @@ export function installPackage(
     updatedAt: now,
     roots,
     contentFingerprint: validated.contentFingerprint,
+    assetUris: Object.keys(assetUris).length > 0 ? assetUris : prior?.assetUris,
   };
 
   if (!prior) {
@@ -413,17 +416,17 @@ function ensureImportShelf(
   return IMPORT_SHELF_ID;
 }
 
-export function importMathaBytes(
+export async function importMathaBytes(
   bytes: Uint8Array,
   snapshot: ContentStoreSnapshot,
   placement: PlacementChoice | null,
   progress?: ProgressStoreSnapshot,
-): InstallResult & { preview: ImportPreview } {
+): Promise<InstallResult & { preview: ImportPreview }> {
   const { validated, preview } = prepareImport(bytes, snapshot);
   if (preview.installed?.sameRevision && preview.installed.contentUnchanged) {
     return { status: 'noop', snapshot, preview };
   }
-  const result = installPackage(snapshot, validated, preview, placement, progress);
+  const result = await installPackage(snapshot, validated, preview, placement, progress);
   if (result.status === 'blocked') return { ...result, preview: result.preview };
   return { ...result, preview };
 }

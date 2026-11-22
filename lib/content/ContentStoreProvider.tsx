@@ -63,7 +63,12 @@ export function ContentStoreProvider({ children }: { children: ReactNode }) {
   const installMatha = useCallback(
     async (bytes: Uint8Array, placement: PlacementChoice | null) => {
       if (!snapshot) throw new Error('Content store not ready');
-      const result = importMathaBytes(bytes, snapshot, placement, getRuntimeProgress());
+      const result = await importMathaBytes(
+        bytes,
+        snapshot,
+        placement,
+        getRuntimeProgress(),
+      );
       if (result.status === 'installed' || result.status === 'noop') {
         await commitContentSnapshot(result.snapshot);
         setSnapshot(result.snapshot);

@@ -3,13 +3,15 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NumberPad } from '@/components/NumberPad';
+import { AnswerInput } from '@/components/AnswerInput';
+import { ContentMarkdown } from '@/components/ContentMarkdown';
 import {
   QuantScratchPad,
   type QuantScratchPadHandle,
 } from '@/components/QuantScratchPad';
-import { packById } from '@/content/packs';
 import { gradeAuthoredAnswer } from '@/content/matha';
+import { packById, type AnswerType } from '@/content/packs';
+import { assetUrisForPack } from '@/lib/content/assetUris';
 import { answersMatch } from '@/lib/fraction';
 import { generateQuantQuestion } from '@/lib/generators/quant';
 import { buildPracticeSequence, type PracticeSlot } from '@/lib/learnDrill';
@@ -21,8 +23,6 @@ import {
   type QuantSkillId,
 } from '@/lib/quantTypes';
 import { colors } from '@/lib/theme';
-
-const MAX_ANSWER_LEN = 12;
 
 function parseSkill(raw: string | string[] | undefined): QuantSkillId | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -129,10 +129,13 @@ export default function QuantSessionScreen() {
       : generateQuantQuestion(skillAt(0)),
   );
   const [answer, setAnswer] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hintVisible, setHintVisible] = useState(false);
   const [scratchOpen, setScratchOpen] = useState(false);
   /** Manual authored: attempt → reveal solution → self-mark. */
   const [manualPhase, setManualPhase] = useState<'prompt' | 'revealed'>('prompt');
+  const learnPack = mode.kind === 'learn' ? packById(mode.packId) : undefined;
+  const assetUris = assetUrisForPack(learnPack);
 
   const answerRef = useRef('');
   const questionRef = useRef(question);
@@ -143,36 +146,6 @@ export default function QuantSessionScreen() {
   const modeRef = useRef(mode);
   modeRef.current = mode;
   questionRef.current = question;
-
-  const commitAnswer = useCallback((next: string) => {
-    answerRef.current = next;
-    setAnswer(next);
-  }, []);
-
-  const appendDigit = useCallback(
-    (digit: string) => {
-      const current = answerRef.current;
-      let next = current;
-      const body = current.replace('-', '');
-      const digitCount = body.replace('/', '').length;
-      if (digitCount >= MAX_ANSWER_LEN) next = current;
-      else if (current === '0') next = digit;
-      else next = current + digit;
-      commitAnswer(next);
-    },
-    [commitAnswer],
-  );
-
-  const insertSlash = useCallback(() => {
-    const current = answerRef.current;
-    if (current.includes('/')) return;
-    if (current === '' || current === '-') return;
-    commitAnswer(`${current}/`);
-  }, [commitAnswer]);
-
-  const backspace = useCallback(() => {
-    commitAnswer(answerRef.current.slice(0, -1));
-  }, [commitAnswer]);
 
   const finishToReview = useCallback(() => {
     if (stoppedRef.current) return;
@@ -193,10 +166,15 @@ export default function QuantSessionScreen() {
   }, []);
 
   const currentSlot = slotAt(index);
-  const isManual =
-    currentSlot?.kind === 'authored' && currentSlot.question.answerType === 'manual';
+  const authoredType: AnswerType | undefined =
+    currentSlot?.kind === 'authored' ? currentSlot.question.answerType : undefined;
+  const isManual = authoredType === 'manual';
+  const usesPad =
+    !authoredType || authoredType === 'rational' || authoredType === 'integer';
   const manualSteps =
     currentSlot?.kind === 'authored' ? currentSlot.question.steps ?? [] : [];
+  const authoredChoices =
+    currentSlot?.kind === 'authored' ? currentSlot.question.choices : undefined;
 
   const advanceAfterGrade = useCallback(
     (correct: boolean, userAnswer: string, correctAnswer: string) => {
@@ -218,6 +196,7 @@ export default function QuantSessionScreen() {
       setIndex(nextIndex);
       answerRef.current = '';
       setAnswer('');
+      setSelectedIds([]);
       setHintVisible(false);
       setScratchOpen(false);
       setManualPhase('prompt');
@@ -236,10 +215,17 @@ export default function QuantSessionScreen() {
     const slot = slotAt(indexRef.current);
     if (slot?.kind === 'authored' && slot.question.answerType === 'manual') return;
 
-    const user = answerRef.current.trim();
-    if (user === '' || user.endsWith('/')) return;
-
     const q = questionRef.current;
+    let user: string | string[] = answerRef.current.trim();
+    if (slot?.kind === 'authored' && slot.question.answerType === 'multiChoice') {
+      user = selectedIds;
+      if (user.length === 0) return;
+    } else if (slot?.kind === 'authored' && slot.question.answerType === 'choice') {
+      if (!user) return;
+    } else if (user === '' || user.endsWith('/')) {
+      return;
+    }
+
     let correct: boolean;
     if (slot?.kind === 'authored') {
       const graded = gradeAuthoredAnswer(
@@ -250,10 +236,11 @@ export default function QuantSessionScreen() {
       );
       correct = graded.kind === 'manual' ? true : graded.correct;
     } else {
-      correct = answersMatch(user, q.answer);
+      correct = answersMatch(String(user), q.answer);
     }
-    advanceAfterGrade(correct, user, q.answer);
-  }, [advanceAfterGrade, slotAt]);
+    const userStr = Array.isArray(user) ? user.join(',') : user;
+    advanceAfterGrade(correct, userStr, q.answer);
+  }, [advanceAfterGrade, selectedIds, slotAt]);
 
   const selfMark = useCallback(
     (correct: boolean) => {
@@ -273,11 +260,17 @@ export default function QuantSessionScreen() {
 
   const canSubmit =
     !isManual &&
-    answer.trim() !== '' &&
-    !answer.trim().endsWith('/') &&
-    !answer.includes('//');
+    (authoredType === 'multiChoice'
+      ? selectedIds.length > 0
+      : authoredType === 'choice' || authoredType === 'text'
+        ? answer.trim() !== ''
+        : answer.trim() !== '' && !answer.trim().endsWith('/') && !answer.includes('//'));
 
   const metaKindLabel = mode.kind === 'learn' ? 'Unit' : 'Skill';
+  const commitAnswer = useCallback((next: string) => {
+    answerRef.current = next;
+    setAnswer(next);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -313,7 +306,7 @@ export default function QuantSessionScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.manualBadge}>Manual · self-mark</Text>
-            <Text style={styles.prompt}>{question.prompt}</Text>
+            <ContentMarkdown text={question.prompt} assetUris={assetUris} style={styles.prompt} />
             {manualPhase === 'revealed' ? (
               <View style={styles.manualReveal}>
                 <Text style={styles.sectionLabel}>Solution</Text>
@@ -331,13 +324,13 @@ export default function QuantSessionScreen() {
               </View>
             ) : null}
           </ScrollView>
-        ) : scratchOpen ? (
+        ) : scratchOpen && usesPad ? (
           <ScrollView
             style={styles.scratchPromptScroll}
             contentContainerStyle={styles.scratchPromptBlock}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.prompt}>{question.prompt}</Text>
+            <ContentMarkdown text={question.prompt} assetUris={assetUris} style={styles.prompt} />
           </ScrollView>
         ) : (
           <ScrollView
@@ -345,17 +338,25 @@ export default function QuantSessionScreen() {
             contentContainerStyle={styles.promptBlock}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.prompt}>{question.prompt}</Text>
-            <View style={styles.answerBox}>
-              <Text style={styles.answerText}>{answer || ' '}</Text>
-            </View>
+            <ContentMarkdown text={question.prompt} assetUris={assetUris} style={styles.prompt} />
+            {authoredType && !usesPad ? (
+              <AnswerInput
+                answerType={authoredType}
+                choices={authoredChoices}
+                value={answer}
+                selectedIds={selectedIds}
+                onChangeText={commitAnswer}
+                onChangeSelectedIds={setSelectedIds}
+                showNumberPad={false}
+              />
+            ) : null}
             {hintVisible && question.hint ? (
               <Text style={styles.hintText}>{question.hint}</Text>
             ) : null}
           </ScrollView>
         )}
 
-        {!isManual ? (
+        {usesPad && !isManual ? (
           <View
             style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
             pointerEvents={scratchOpen ? 'auto' : 'none'}
@@ -396,7 +397,7 @@ export default function QuantSessionScreen() {
               </>
             )}
           </View>
-        ) : scratchOpen ? (
+        ) : scratchOpen && usesPad ? (
           <View style={styles.toolbar}>
             <Pressable
               accessibilityRole="button"
@@ -405,14 +406,6 @@ export default function QuantSessionScreen() {
               style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
             >
               <Text style={styles.toolBtnText}>Clear</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear all scratch pages"
-              onPress={() => scratchRef.current?.clearAll()}
-              style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
-            >
-              <Text style={styles.toolBtnText}>Clear all</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -426,14 +419,16 @@ export default function QuantSessionScreen() {
         ) : (
           <>
             <View style={styles.toolbar}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open scratch pad"
-                onPress={() => setScratchOpen(true)}
-                style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
-              >
-                <Text style={styles.toolBtnText}>Scratch</Text>
-              </Pressable>
+              {usesPad ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open scratch pad"
+                  onPress={() => setScratchOpen(true)}
+                  style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+                >
+                  <Text style={styles.toolBtnText}>Scratch</Text>
+                </Pressable>
+              ) : null}
               {question.hint ? (
                 <Pressable
                   accessibilityRole="button"
@@ -466,13 +461,14 @@ export default function QuantSessionScreen() {
               </Pressable>
             </View>
 
-            <NumberPad
-              allowNegative={false}
-              allowFraction
-              onDigit={appendDigit}
-              onSlash={insertSlash}
-              onBackspace={backspace}
-            />
+            {usesPad ? (
+              <AnswerInput
+                answerType={authoredType ?? 'rational'}
+                value={answer}
+                onChangeText={commitAnswer}
+                showNumberPad
+              />
+            ) : null}
           </>
         )}
       </View>

@@ -8,7 +8,7 @@
     "tags": ["biology", "cells"]
   },
   "lesson": {
-    "intro": "Cells are the basic unit of life. Know the major organelles and what they do.",
+    "intro": "Cells are the basic unit of life. Know the major organelles and what they do.\n\n![Animal cell](units/pkg.bio.u1-cell/assets/cell.png)",
     "definitions": [
       {
         "term": "Mitochondrion",
