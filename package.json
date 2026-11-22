@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "build:matha": "tsx scripts/build-matha-examples.ts",
     "test:matha": "tsx scripts/test-matha-import.ts",
+    "test:review": "tsx scripts/test-review-progress.ts",
     "lint": "expo lint"
   },
   "private": true
