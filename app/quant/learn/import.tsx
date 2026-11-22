@@ -6,6 +6,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ImportPreview } from '@/content/matha';
+import {
+  EXAMPLE_PACKAGES,
+  loadExamplePackageBytes,
+  type ExamplePackage,
+} from '@/content/matha/examplePackages';
 import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { colors } from '@/lib/theme';
 
@@ -21,6 +26,17 @@ export default function MathaImportScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const previewBytes = async (data: Uint8Array) => {
+    setBytes(data);
+    const p = prepareMatha(data);
+    setPreview(p);
+    if (!p.canInstall && p.installed?.contentUnchanged) {
+      setStatus('Same revision and content — install would be a no-op.');
+    } else {
+      setStatus(null);
+    }
+  };
+
   const pickFile = async () => {
     setStatus(null);
     setPreview(null);
@@ -35,12 +51,22 @@ export default function MathaImportScreen() {
     try {
       setBusy(true);
       const data = await readPickedBytes(asset.uri);
-      setBytes(data);
-      const p = prepareMatha(data);
-      setPreview(p);
-      if (!p.canInstall && p.installed?.contentUnchanged) {
-        setStatus('Same revision and content — install would be a no-op.');
-      }
+      await previewBytes(data);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadExample = async (pkg: ExamplePackage) => {
+    setStatus(null);
+    setPreview(null);
+    setBytes(null);
+    try {
+      setBusy(true);
+      const data = await loadExamplePackageBytes(pkg);
+      await previewBytes(data);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : String(e));
     } finally {
@@ -90,6 +116,28 @@ export default function MathaImportScreen() {
         >
           <Text style={styles.primaryText}>{busy ? 'Working…' : 'Choose .matha file'}</Text>
         </Pressable>
+
+        <View style={styles.examples}>
+          <Text style={styles.sectionTitle}>Example packages</Text>
+          <Text style={styles.muted}>
+            Load a bundled sample (works on web when file picker is unavailable).
+          </Text>
+          {EXAMPLE_PACKAGES.map((pkg) => (
+            <Pressable
+              key={pkg.id}
+              accessibilityRole="button"
+              disabled={!ready || busy}
+              onPress={() => void loadExample(pkg)}
+              style={({ pressed }) => [
+                styles.secondary,
+                (!ready || busy) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.secondaryText}>{pkg.title}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         {preview ? (
           <View style={styles.preview}>
@@ -189,6 +237,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  examples: { gap: 10 },
+  secondary: {
+    borderRadius: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  secondaryText: { color: colors.text, fontWeight: '600', fontSize: 15 },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.85 },
   preview: { gap: 8, marginTop: 8 },
