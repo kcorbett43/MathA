@@ -4,7 +4,7 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU1Dice: ContentPack = {
   meta: {
     id: 'u1-dice',
-    version: 2,
+    version: 3,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Counting & dice',
     order: 1,
@@ -40,6 +40,7 @@ export const packU1Dice: ContentPack = {
       {
         title: '2d6 sum = 7',
         prompt: 'Two fair six-sided dice. What is P(sum = 7)?',
+        hint: 'Count ordered pairs (a, b) with a + b = 7, then divide by 6².',
         steps: [
           '|Ω| = 6 × 6 = 36 ordered pairs.',
           'Favorable: (1,6), (2,5), (3,4), (4,3), (5,2), (6,1) → 6 outcomes.',
@@ -50,6 +51,7 @@ export const packU1Dice: ContentPack = {
       {
         title: '2d8 sum = 9',
         prompt: 'Two fair eight-sided dice. What is P(sum = 9)?',
+        hint: 'Count ordered pairs with a + b = 9 (faces 1…8), divide by 64.',
         steps: [
           '|Ω| = 8 × 8 = 64.',
           'Pairs with a + b = 9 and 1 ≤ a,b ≤ 8: (1,8)…(8,1) → 8 outcomes.',
@@ -60,6 +62,7 @@ export const packU1Dice: ContentPack = {
       {
         title: 'Mid-range check',
         prompt: 'Two fair 5-sided dice. What is P(sum = 6)?',
+        hint: 'Count pairs with a + b = 6 on faces 1…5, then divide by 25.',
         steps: [
           '|Ω| = 25.',
           'Favorable: (1,5), (2,4), (3,3), (4,2), (5,1) → 5.',

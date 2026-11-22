@@ -29,8 +29,9 @@ type ContentPack = {
     examples: {
       title: string;
       prompt: string;
-      steps: string[];
-      answer: string;
+      answer: string;           // canonical int or reduced n/d (graded)
+      steps: string[];         // revealed after Submit or Show solution
+      hint?: string;           // optional — same Hint control as Practice
     }[];
   };
   drill: {
@@ -43,6 +44,19 @@ type ContentPack = {
 ```
 
 `GeneratorId` matches shipped Quant Practice skills: `"dice" | "urns" | "ev"`.
+
+## Try-first examples
+
+Worked examples are **not** solution dumps on the lesson screen.
+
+| Surface | Behavior |
+|---------|----------|
+| Lesson (`learn/[packId]`) | Title + prompt + **Try** only — no steps/answer |
+| Attempt (`learn/example`) | Same Quant drill chrome: answer box, NumberPad, Scratch, optional Hint, **Submit**, **Show solution** |
+| After Submit | Grade with `answersMatch`; reveal Correct / Not quite, canonical `answer`, and `steps` |
+| After Show solution | Reveal `answer` + `steps` without requiring an attempt |
+
+Authors **must** supply `answer` + `steps` on every example so grading and reveal work.
 
 ## Unit links (graph)
 
@@ -104,4 +118,4 @@ Named policies in `SPACED_REP_POLICIES` (`types.ts`):
 | Types + policies | `content/packs/types.ts` |
 | Registry + review resolve | `content/packs/index.ts` |
 | Drill mix helper | `lib/learnDrill.ts` |
-| Unit list / lesson / session | `app/quant/learn/*`, `app/quant/session.tsx` |
+| Unit list / lesson / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |

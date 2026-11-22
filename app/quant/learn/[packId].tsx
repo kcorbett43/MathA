@@ -55,21 +55,33 @@ export default function QuantLearnLessonScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Worked examples</Text>
+            <Text style={styles.sectionTitle}>Try these first</Text>
+            <Text style={styles.sectionLead}>
+              Attempt each example with the same pad as Practice. Steps and the
+              answer unlock after you submit — or tap Show solution.
+            </Text>
             {lesson.examples.map((ex, i) => (
               <View key={`${ex.title}-${i}`} style={styles.example}>
                 <Text style={styles.exampleTitle}>
                   {i + 1}. {ex.title}
                 </Text>
                 <Text style={styles.examplePrompt}>{ex.prompt}</Text>
-                {ex.steps.map((step, si) => (
-                  <Text key={si} style={styles.step}>
-                    {si + 1}. {step}
-                  </Text>
-                ))}
-                <Text style={styles.answer}>
-                  Answer: <Text style={styles.answerValue}>{ex.answer}</Text>
-                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Try example ${i + 1}: ${ex.title}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/quant/learn/example',
+                      params: { packId: meta.id, i: String(i) },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.tryBtn,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.tryBtnText}>Try</Text>
+                </Pressable>
               </View>
             ))}
           </View>
@@ -148,6 +160,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  sectionLead: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+    marginTop: -4,
+  },
   defBlock: {
     gap: 4,
     paddingVertical: 4,
@@ -163,7 +181,7 @@ const styles = StyleSheet.create({
     color: colors.subtle,
   },
   example: {
-    gap: 8,
+    gap: 10,
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
@@ -181,20 +199,17 @@ const styles = StyleSheet.create({
     color: colors.subtle,
     fontWeight: '600',
   },
-  step: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-    paddingLeft: 4,
+  tryBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  answer: {
+  tryBtnText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    color: colors.subtle,
-    marginTop: 4,
-  },
-  answerValue: {
-    fontWeight: '700',
-    color: colors.success,
+    fontWeight: '600',
   },
   mixNote: {
     fontSize: 14,
