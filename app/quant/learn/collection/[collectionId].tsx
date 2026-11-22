@@ -126,29 +126,48 @@ export default function QuantLearnCollectionScreen() {
             }
 
             const { pack } = child;
+            const cardCount = pack.cards.length;
             return (
-              <Pressable
-                key={`p-${pack.meta.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Open unit ${pack.meta.title}`}
-                onPress={() =>
-                  router.push({
-                    pathname: '/quant/learn/[packId]',
-                    params: { packId: pack.meta.id },
-                  })
-                }
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              >
-                <View style={styles.kindBadge}>
-                  <Text style={styles.kindText}>{pack.meta.order}</Text>
-                </View>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowLabel}>{pack.meta.title}</Text>
-                  <Text style={styles.rowBlurb}>{pack.meta.blurb}</Text>
-                  <Text style={styles.rowMeta}>{formatMixLabel(pack)}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
+              <View key={`p-${pack.meta.id}`} style={styles.unitBlock}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open unit ${pack.meta.title}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/quant/learn/[packId]',
+                      params: { packId: pack.meta.id },
+                    })
+                  }
+                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+                >
+                  <View style={styles.kindBadge}>
+                    <Text style={styles.kindText}>{pack.meta.order}</Text>
+                  </View>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowLabel}>{pack.meta.title}</Text>
+                    <Text style={styles.rowBlurb}>{pack.meta.blurb}</Text>
+                    <Text style={styles.rowMeta}>{formatMixLabel(pack)}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
+                {cardCount > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Review ${cardCount} cards for ${pack.meta.title}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/quant/learn/cards',
+                        params: { packId: pack.meta.id },
+                      })
+                    }
+                    style={({ pressed }) => [styles.reviewLink, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.reviewLinkText}>
+                      Review cards · {cardCount}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
             );
           })}
         </View>
@@ -219,6 +238,20 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
+  },
+  unitBlock: {
+    gap: 8,
+  },
+  reviewLink: {
+    alignSelf: 'flex-start',
+    marginLeft: 46,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  reviewLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   row: {
     flexDirection: 'row',

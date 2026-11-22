@@ -3,6 +3,7 @@ import type {
   ContentPack,
   GeneratorId,
   LearnCollection,
+  PackCard,
   PackId,
   SpacedRepPolicyId,
 } from './types';
@@ -25,6 +26,7 @@ export {
   type ContentPack,
   type GeneratorId,
   type LearnCollection,
+  type PackCard,
   type PackDefinition,
   type PackDrill,
   type PackExample,
@@ -139,6 +141,11 @@ export function parentCollectionId(
   const path = collectionPath(collectionId);
   if (path.length < 2) return undefined;
   return path[path.length - 2]?.id;
+}
+
+/** Unit Review deck — `pack.cards` (order preserved). */
+export function cardsInPack(pack: ContentPack): PackCard[] {
+  return [...pack.cards];
 }
 
 /**

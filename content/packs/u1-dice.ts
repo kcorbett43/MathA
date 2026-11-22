@@ -4,7 +4,7 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU1Dice: ContentPack = {
   meta: {
     id: 'u1-dice',
-    version: 3,
+    version: 5,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Counting & dice',
     order: 1,
@@ -72,10 +72,41 @@ export const packU1Dice: ContentPack = {
       },
     ],
   },
+  cards: [
+    {
+      id: 'u1-outcome',
+      front: 'Outcome',
+      back: 'One possible result of an experiment (e.g. die A shows 3 and die B shows 4).',
+    },
+    {
+      id: 'u1-sample-space',
+      front: 'Sample space Ω',
+      back: 'The set of all equally likely outcomes. For two fair F-sided dice, |Ω| = F × F.',
+    },
+    {
+      id: 'u1-event',
+      front: 'Event A',
+      back: 'A subset of Ω (e.g. “sum equals 7”).',
+    },
+    {
+      id: 'u1-classical-prob',
+      front: 'Classical probability',
+      back: 'When every outcome is equally likely, P(A) = |A| / |Ω|.',
+    },
+    {
+      id: 'u1-two-dice-size',
+      front: '|Ω| for two fair F-sided dice',
+      back: 'F × F ordered pairs (faces 1…F on each die).',
+    },
+    {
+      id: 'u1-sum-count',
+      front: 'Counting P(sum = s) on 2dF',
+      back: 'Count ordered pairs (a, b) with a + b = s and 1 ≤ a,b ≤ F, then divide by F².',
+    },
+  ],
   drill: {
     n: 10,
     newShare: 1,
     newTopicTags: ['dice'],
-    // No priors — review pool empty (policy standard still → 100% new)
   },
 };

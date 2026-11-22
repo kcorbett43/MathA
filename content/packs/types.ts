@@ -4,8 +4,11 @@ import type { QuantSkillId } from '@/lib/quantTypes';
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
  * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
+ * v4: unit-scoped **flash cards** (`id` / `front` / `back`) for Review.
+ *     Lesson stays normal (`intro` / `definitions` / `examples`); cards are a
+ *     separate list on the pack — not section-linked, not a lesson deck.
  */
-export const CONTENT_PACK_SCHEMA_VERSION = 3 as const;
+export const CONTENT_PACK_SCHEMA_VERSION = 4 as const;
 
 /** Maps to Quant Practice generators (`lib/generators/quant`). */
 export type GeneratorId = QuantSkillId;
@@ -111,6 +114,19 @@ export type PackDefinition = {
 };
 
 /**
+ * Flash card for this unit’s Review deck. Unit-scoped only — not tied to a
+ * lesson section, and not rendered as the lesson itself.
+ */
+export type PackCard = {
+  /** Stable id within the pack. */
+  id: string;
+  /** Prompt / term / formula name shown first. */
+  front: string;
+  /** Definition, formula, or short explanation. */
+  back: string;
+};
+
+/**
  * Try-first worked example. Lesson UI shows title + prompt only; the learner
  * attempts with the Quant pad (Scratch / Hint / Submit / Show solution).
  * `steps` + `answer` are revealed after submit or Show solution — never dumped
@@ -171,12 +187,14 @@ export type PackMeta = {
 };
 
 /**
- * One Learn unit: lesson copy + drill mix config + graph links.
+ * One Learn unit: normal lesson copy + optional Review card list + drill mix.
  * Authors add packs as TS modules matching this shape — no new screens required.
  * Placement in the Learn tree is via `LearnCollection.children`.
  */
 export type ContentPack = {
   meta: PackMeta;
   lesson: PackLesson;
+  /** Unit Review deck (flip study). Empty or omit when the unit has no cards. */
+  cards: PackCard[];
   drill: PackDrill;
 };

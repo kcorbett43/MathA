@@ -1,12 +1,14 @@
-# Quant Learn content-pack schema (v3)
+# Quant Learn content-pack schema (v4)
 
 Versioned, data-driven packs drive **Learn** units. Authors add a pack module under `content/packs/`, register it in `index.ts`, place it in a **collection**’s `children`, and the existing Learn screens + Quant session shell pick it up — **no new routes per unit**.
 
-Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **3**). Bump when the pack shape breaks.
+Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **4**). Bump when the pack shape breaks.
 
 **v2 added:** curriculum **links** (`before` / `after` / `prerequisites`) and named **spaced-repetition policies** (`none` | `light` | `standard` | `heavy`). Runtime still applies the **standard / current** mix only (`RUNTIME_SPACED_REP_POLICY`).
 
 **v3 adds:** nested **collections** tree (unlimited depth). Navigation is **Learn → browse collections → units**, with UI breadcrumbs. Not fixed book/chapter levels.
+
+**v4 adds:** unit-scoped **flash cards** (`id` / `front` / `back`) as a separate `cards[]` list on the pack. Cards are data on the unit only — **not** shown in the lesson UI. Lesson = prose + examples + practice. Flip study is a separate **Review cards** entry on the unit list (collection screen).
 
 ## Hierarchy
 
@@ -29,10 +31,11 @@ c-foundations
 | Concern | Location |
 |---------|----------|
 | Collections registry | `content/packs/collections.ts` → `LEARN_COLLECTIONS`, `LEARN_ROOT_COLLECTION_IDS` |
-| Helpers | `collectionById`, `rootCollections`, `resolveCollectionChildren`, `collectionPath`, `countLeafPacks` |
+| Helpers | `collectionById`, `rootCollections`, `resolveCollectionChildren`, `collectionPath`, `countLeafPacks`, `cardsInPack` |
 | Learn home | `app/quant/learn/index.tsx` |
 | Collection browser | `app/quant/learn/collection/[collectionId].tsx` (breadcrumbs) |
-| Lesson UI | `app/quant/learn/[packId].tsx` |
+| Lesson UI | `app/quant/learn/[packId].tsx` (prose + examples + practice only) |
+| Card flip study | `app/quant/learn/cards.tsx` (`packId` only); entry from collection unit list |
 
 ## Collection shape
 
@@ -54,11 +57,17 @@ Depth is unlimited. Placement of a pack in the tree is via some collection’s `
 ## Pack shape
 
 ```ts
+type PackCard = {
+  id: string;    // stable within the pack
+  front: string; // term / prompt / formula name
+  back: string;  // definition / formula / short explanation
+};
+
 type ContentPack = {
   meta: {
     id: string;                 // stable slug, e.g. "u1-dice"
     version: number;            // content revision (independent of schema)
-    schemaVersion: 3;
+    schemaVersion: 4;
     title: string;
     order: number;              // display hint; children[] order is authoritative
     blurb: string;
@@ -79,6 +88,7 @@ type ContentPack = {
       hint?: string;           // optional — same Hint control as Practice
     }[];
   };
+  cards: PackCard[];            // unit Review deck (may be empty)
   drill: {
     n: number;
     newShare: number;               // authored share for policy = standard
@@ -89,6 +99,18 @@ type ContentPack = {
 ```
 
 `GeneratorId` matches shipped Quant Practice skills: `"dice" | "urns" | "ev"`.
+
+## Flash cards (unit data only)
+
+| Surface | Behavior |
+|---------|----------|
+| Lesson | Intro / definitions / examples / Start practice — **no** cards UI |
+| Unit list (collection) | **Review cards · N** under each unit that has `cards.length > 0` |
+| Flip study (`learn/cards?packId=…`) | Front → tap flip → Previous / Next / Done |
+
+Helper: `cardsInPack(pack)` → `pack.cards`.
+
+Author cards for definitions and formulas the learner should retain; keep lesson copy independent.
 
 ## Try-first examples
 
@@ -150,10 +172,11 @@ Named policies in `SPACED_REP_POLICIES` (`types.ts`):
 
 1. Copy an existing `uN-*.ts`; set unique `meta.id`, `meta.order`, and `meta.links`.
 2. Append `{ kind: 'pack', id }` to a collection’s `children` in `collections.ts` (or add a nested collection).
-3. Write MathA-authored lesson copy.
-4. Set `drill.newTopicTags` and either explicit `reviewTopicTags` or rely on prerequisites.
-5. Set `drill.newShare` for the standard/current mix.
-6. Export from `content/packs/index.ts`.
+3. Write MathA-authored lesson copy (`intro` / `definitions` / `examples`).
+4. Add `cards[]` for the unit Review deck (stable `id`s within the pack).
+5. Set `drill.newTopicTags` and either explicit `reviewTopicTags` or rely on prerequisites.
+6. Set `drill.newShare` for the standard/current mix.
+7. Export from `content/packs/index.ts`.
 
 ## Runtime paths
 
@@ -161,6 +184,6 @@ Named policies in `SPACED_REP_POLICIES` (`types.ts`):
 |---------|----------|
 | Types + policies | `content/packs/types.ts` |
 | Collections registry | `content/packs/collections.ts` |
-| Registry + review resolve | `content/packs/index.ts` |
+| Registry + review / card resolve | `content/packs/index.ts` |
 | Drill mix helper | `lib/learnDrill.ts` |
-| Collection / lesson / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |
+| Collection / lesson / cards / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |

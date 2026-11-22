@@ -57,8 +57,8 @@ export default function QuantLearnLessonScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Try these first</Text>
             <Text style={styles.sectionLead}>
-              Attempt each example with the same pad as Practice. Steps and the
-              answer unlock after you submit — or tap Show solution.
+              Attempt each example with the same pad as Practice. Steps and the answer unlock after
+              you submit — or tap Show solution.
             </Text>
             {lesson.examples.map((ex, i) => (
               <View key={`${ex.title}-${i}`} style={styles.example}>
@@ -75,10 +75,7 @@ export default function QuantLearnLessonScreen() {
                       params: { packId: meta.id, i: String(i) },
                     })
                   }
-                  style={({ pressed }) => [
-                    styles.tryBtn,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.tryBtn, pressed && styles.pressed]}
                 >
                   <Text style={styles.tryBtnText}>Try</Text>
                 </Pressable>
