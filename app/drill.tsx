@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DrillTimer } from '@/components/DrillTimer';
 import { NumberPad } from '@/components/NumberPad';
+import { StartCountdown } from '@/components/StartCountdown';
 import { generateQuestion } from '@/lib/generators';
 import { colors } from '@/lib/theme';
 import {
@@ -31,6 +32,8 @@ function parseDuration(raw: string | string[] | undefined): DurationMinutes {
 
 const MAX_ANSWER_LEN = 10;
 
+type Phase = 'countdown' | 'playing';
+
 export default function DrillScreen() {
   const params = useLocalSearchParams<{ mode?: string; duration?: string }>();
   const mode = useMemo(() => parseMode(params.mode), [params.mode]);
@@ -40,10 +43,12 @@ export default function DrillScreen() {
   );
   const totalSeconds = durationMinutes * 60;
 
+  const [phase, setPhase] = useState<Phase>('countdown');
+  const [countdownKey, setCountdownKey] = useState(0);
+  const [timerRunId, setTimerRunId] = useState(0);
   const [question, setQuestion] = useState<Question>(() => generateQuestion(mode));
   const [answer, setAnswer] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
-  const [runId, setRunId] = useState(0);
 
   const stoppedRef = useRef(false);
   const answerRef = useRef('');
@@ -70,6 +75,12 @@ export default function DrillScreen() {
       },
     });
   }, [durationMinutes]);
+
+  const beginPlaying = useCallback(() => {
+    if (stoppedRef.current) return;
+    setPhase('playing');
+    setTimerRunId((n) => n + 1);
+  }, []);
 
   const commitAnswer = useCallback((next: string) => {
     if (stoppedRef.current) return;
@@ -110,7 +121,7 @@ export default function DrillScreen() {
   }, [commitAnswer]);
 
   function resetDrill() {
-    // Restart in place — do not log a score.
+    // Restart in place — do not log a score. Replay 3-2-1 before the clock.
     stoppedRef.current = false;
     answerRef.current = '';
     setAnswer('');
@@ -119,14 +130,17 @@ export default function DrillScreen() {
     const nextQuestion = generateQuestion(modeRef.current);
     questionRef.current = nextQuestion;
     setQuestion(nextQuestion);
-    setRunId((n) => n + 1);
+    setPhase('countdown');
+    setCountdownKey((n) => n + 1);
   }
 
   function goHome() {
-    // Abandon without logging a score.
+    // Abandon without logging a score (works during countdown too).
     stoppedRef.current = true;
     router.replace('/');
   }
+
+  const isPlaying = phase === 'playing';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -134,7 +148,8 @@ export default function DrillScreen() {
         <View style={styles.metaRow}>
           <DrillTimer
             totalSeconds={totalSeconds}
-            runId={runId}
+            runId={timerRunId}
+            active={isPlaying}
             onTimeUp={finishSession}
             isStopped={isStopped}
           />
@@ -170,27 +185,33 @@ export default function DrillScreen() {
           </View>
         </View>
 
-        <View style={styles.promptBlock}>
-          <Text
-            style={[
-              styles.prompt,
-              mode === 'arithmeticPro' && styles.promptPro,
-              mode === 'sequence' && styles.promptSequence,
-            ]}
-          >
-            {question.prompt}
-          </Text>
-          <View style={styles.answerBox}>
-            <Text style={styles.answerText}>{answer || ' '}</Text>
-          </View>
-        </View>
+        {phase === 'countdown' ? (
+          <StartCountdown key={countdownKey} onComplete={beginPlaying} />
+        ) : (
+          <>
+            <View style={styles.promptBlock}>
+              <Text
+                style={[
+                  styles.prompt,
+                  mode === 'arithmeticPro' && styles.promptPro,
+                  mode === 'sequence' && styles.promptSequence,
+                ]}
+              >
+                {question.prompt}
+              </Text>
+              <View style={styles.answerBox}>
+                <Text style={styles.answerText}>{answer || ' '}</Text>
+              </View>
+            </View>
 
-        <NumberPad
-          allowNegative
-          onDigit={appendDigit}
-          onMinus={toggleMinus}
-          onBackspace={backspace}
-        />
+            <NumberPad
+              allowNegative
+              onDigit={appendDigit}
+              onMinus={toggleMinus}
+              onBackspace={backspace}
+            />
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
