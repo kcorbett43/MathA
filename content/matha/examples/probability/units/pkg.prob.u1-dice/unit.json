@@ -30,6 +30,7 @@
     "sessionSize": 8,
     "mix": { "authored": 0.4, "generated": 0.6 },
     "generators": ["dice"],
+    "generatorNewShare": 1,
     "questions": [
       {
         "id": "pkg.prob.q-classical",

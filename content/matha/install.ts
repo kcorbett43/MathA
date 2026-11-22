@@ -1,5 +1,6 @@
-import { normalizePack } from '@/content/packs/normalize';
+import { fingerprintUnits, normalizePack } from '@/content/packs/normalize';
 import type { CollectionId, ContentPack, PackId } from '@/content/packs/types';
+import { progressKey } from '@/content/store/ids';
 import { toStoreUnit } from '@/content/store/seed';
 import type {
   ContentStoreSnapshot,
@@ -16,7 +17,6 @@ import { hasErrors, validateParsedPackage, type ValidatedMatha } from './validat
 export type PrepareResult = {
   validated: ValidatedMatha;
   preview: ImportPreview;
-  /** Fingerprint of prior install content when same package exists. */
   priorFingerprint?: string;
 };
 
@@ -28,38 +28,24 @@ function fingerprintFromStore(
   snapshot: ContentStoreSnapshot,
   packageId: string,
 ): string | undefined {
+  const pkg = snapshot.packages[packageId];
+  if (pkg?.contentFingerprint) return pkg.contentFingerprint;
   const units = Object.values(snapshot.units)
     .filter((u) => u.meta.packageId === packageId && u.active)
     .map((u) => normalizePack(u));
   if (units.length === 0) return undefined;
-  const payload = JSON.stringify(
-    units
-      .map((u) => ({
-        id: u.meta.id,
-        version: u.meta.version,
-        title: u.meta.title,
-        lesson: u.lesson,
-        practice: u.practice
-          ? {
-              sessionSize: u.practice.sessionSize,
-              mix: u.practice.mix,
-              generators: u.practice.generators,
-              questions: u.practice.questions,
-            }
-          : undefined,
-        review: u.review,
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id)),
-  );
-  let h = 0;
-  for (let i = 0; i < payload.length; i++) {
-    h = (Math.imul(31, h) + payload.charCodeAt(i)) | 0;
-  }
-  return `h${h >>> 0}`;
+  return fingerprintUnits(units);
 }
 
 /**
  * Parse + validate bytes and build an import preview against the current store.
+ *
+ * Revision rules:
+ * - same revision + same content → no-op (canInstall, contentUnchanged)
+ * - same revision + different content → **reject**
+ * - higher revision → update
+ * - lower revision (downgrade) → **reject**
+ * - returning a previously deleted id → reactivates; progress for that triple kept
  */
 export function prepareImport(
   bytes: Uint8Array,
@@ -74,7 +60,7 @@ export function prepareImport(
 
   const issues: ValidationIssue[] = [...validated.issues];
 
-  // Collision: different provenance / foreign package already owns an id
+  // Collision: different package already owns an id
   for (const unit of validated.units) {
     const existing = snapshot.units[unit.meta.id];
     if (
@@ -85,7 +71,7 @@ export function prepareImport(
       issues.push({
         level: 'error',
         code: 'id.collision',
-        message: `Unit id ${unit.meta.id} already owned by package ${existing.meta.packageId}`,
+        message: `Unit id ${unit.meta.id} already owned by package ${existing.meta.packageId} — ids must be namespaced; never silent overwrite`,
       });
     }
   }
@@ -109,11 +95,20 @@ export function prepareImport(
   const sameRevision = Boolean(
     installedPkg && installedPkg.revision === validated.manifest.revision,
   );
-  const contentUnchanged = Boolean(
-    sameRevision &&
-      priorFingerprint &&
-      priorFingerprint === validated.contentFingerprint,
+  const isDowngrade = Boolean(
+    installedPkg && validated.manifest.revision < installedPkg.revision,
   );
+  const contentUnchanged = Boolean(
+    priorFingerprint && priorFingerprint === validated.contentFingerprint,
+  );
+
+  if (isDowngrade) {
+    issues.push({
+      level: 'error',
+      code: 'revision.downgrade',
+      message: `Downgrade blocked: package revision ${validated.manifest.revision} < installed ${installedPkg!.revision}`,
+    });
+  }
 
   if (sameRevision && !contentUnchanged) {
     issues.push({
@@ -164,7 +159,7 @@ export function prepareImport(
       ? {
           revision: installedPkg.revision,
           sameRevision,
-          contentUnchanged,
+          contentUnchanged: sameRevision && contentUnchanged,
         }
       : undefined,
     canInstall: !hasErrors(issues),
@@ -180,7 +175,8 @@ export type InstallResult =
 
 /**
  * Atomically apply a validated package into a cloned snapshot.
- * Caller persists the returned snapshot (all-or-nothing).
+ * Returning a previously inactive unit/collection id sets `active: true`
+ * and retains progress rows for unchanged (packageId, unitId, itemId) triples.
  */
 export function installPackage(
   snapshot: ContentStoreSnapshot,
@@ -202,7 +198,6 @@ export function installPackage(
   const packageId = validated.manifest.packageId;
   const prior = next.packages[packageId];
 
-  // Mark removed units/collections inactive (keep history)
   const incomingUnitIds = new Set(validated.units.map((u) => u.meta.id));
   const incomingColIds = new Set(validated.tree?.collections.map((c) => c.id) ?? []);
 
@@ -217,7 +212,7 @@ export function installPackage(
     }
   }
 
-  // Upsert units
+  // Upsert / reactivate units
   for (const unit of validated.units) {
     const normalized = normalizePack({
       ...unit,
@@ -226,7 +221,6 @@ export function installPackage(
     next.units[unit.meta.id] = toStoreUnit(normalized, packageId);
   }
 
-  // Upsert collections from tree
   if (validated.tree) {
     for (const col of validated.tree.collections) {
       const children = col.children.map((ch) => {
@@ -256,13 +250,13 @@ export function installPackage(
     formatVersion: validated.manifest.formatVersion,
     title: validated.manifest.title,
     attribution: validated.manifest.attribution,
-    provenance: 'imported',
+    provenance: prior?.provenance === 'shipped' ? 'shipped' : 'imported',
     installedAt: prior?.installedAt ?? now,
     updatedAt: now,
     roots,
+    contentFingerprint: validated.contentFingerprint,
   };
 
-  // Placement: first install uses choice; update preserves unless package relocates
   if (!prior) {
     applyPlacement(next, packageId, preview, placement);
   } else {
@@ -272,10 +266,14 @@ export function installPackage(
   const preservedProgressIds: string[] = [];
   if (progress) {
     for (const row of progress.cards) {
-      if (incomingUnitIds.has(row.unitId)) preservedProgressIds.push(row.cardId);
+      if (row.packageId === packageId && incomingUnitIds.has(row.unitId)) {
+        preservedProgressIds.push(progressKey(row.packageId, row.unitId, row.cardId));
+      }
     }
     for (const row of progress.questions) {
-      if (incomingUnitIds.has(row.unitId)) preservedProgressIds.push(row.questionId);
+      if (row.packageId === packageId && incomingUnitIds.has(row.unitId)) {
+        preservedProgressIds.push(progressKey(row.packageId, row.unitId, row.questionId));
+      }
     }
   }
 
@@ -291,7 +289,6 @@ function applyPlacement(
   const parentId = placement?.parentCollectionId ?? null;
   const index = placement?.index ?? 0;
 
-  // Clear old placements for this package
   snapshot.placements = snapshot.placements.filter((p) => p.packageId !== packageId);
 
   for (let i = 0; i < preview.roots.length; i++) {
@@ -312,7 +309,6 @@ function applyPlacement(
         insertChild(snapshot, parentId, { kind: 'collection', id: root.id }, index + i);
       }
     } else {
-      // Bare unit: wrap requires a parent collection — place into parent or create import shelf
       const shelfId = ensureImportShelf(snapshot, parentId);
       insertChild(snapshot, shelfId, { kind: 'pack', id: root.id }, index + i);
       if (parentId == null && !snapshot.rootCollectionIds.includes(shelfId)) {
@@ -334,7 +330,6 @@ function preserveOrUpdatePlacement(
     applyPlacement(snapshot, packageId, preview, { parentCollectionId: null });
     return;
   }
-  // Keep placement records; ensure roots still appear where placed
   for (const place of existing) {
     if (place.rootKind === 'collection') {
       if (place.parentCollectionId == null) {
@@ -358,7 +353,6 @@ function preserveOrUpdatePlacement(
       );
     }
   }
-  // Drop placement rows for roots no longer in package
   const rootIds = new Set(preview.roots.map((r) => r.id));
   snapshot.placements = snapshot.placements.filter(
     (p) => p.packageId !== packageId || rootIds.has(p.rootId),
@@ -419,7 +413,6 @@ function ensureImportShelf(
   return IMPORT_SHELF_ID;
 }
 
-/** Convenience: prepare + install in one shot (still returns new snapshot; caller saves). */
 export function importMathaBytes(
   bytes: Uint8Array,
   snapshot: ContentStoreSnapshot,

@@ -230,19 +230,21 @@ export type PackPractice = {
   /** Session length (question count). */
   sessionSize: number;
   /**
-   * Authored vs generated shares (0–1). Should sum to ~1.
-   * Counts are derived: authoredCount = round(n × authored), rest generated.
+   * Authored vs generated shares — each ≥ 0 and **must sum to 1**.
+   * Counts: `authoredCount = round(n × authored)`, `generatedCount = n − authoredCount`.
+   * If authoredCount exceeds unique questions, questions **repeat** (cycle).
+   * Manual questions count in the authored pool and use self-mark UX.
    */
   mix: { authored: number; generated: number };
-  /** Built-in generator ids only (`dice` | `urns` | `ev`). */
+  /** Built-in generator ids only (`dice` | `urns` | `ev`). Unknown ids hard-fail import. */
   generators?: GeneratorId[];
   questions?: AuthoredQuestion[];
   /**
-   * Store/runtime only (not in `.matha`): new-topic share among *generated*
-   * slots for shipped curriculum spaced review. Defaults to 1.
+   * New-topic share among *generated* slots (0–1). Part of `.matha` so
+   * export/reimport preserves shipped-style spaced-review mix. Defaults to 1.
    */
   generatorNewShare?: number;
-  /** Store/runtime only: explicit review generator pool. */
+  /** Explicit review generator pool for generated slots. Part of `.matha`. */
   reviewGenerators?: GeneratorId[];
 };
 

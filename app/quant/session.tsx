@@ -131,6 +131,8 @@ export default function QuantSessionScreen() {
   const [answer, setAnswer] = useState('');
   const [hintVisible, setHintVisible] = useState(false);
   const [scratchOpen, setScratchOpen] = useState(false);
+  /** Manual authored: attempt → reveal solution → self-mark. */
+  const [manualPhase, setManualPhase] = useState<'prompt' | 'revealed'>('prompt');
 
   const answerRef = useRef('');
   const questionRef = useRef(question);
@@ -190,13 +192,54 @@ export default function QuantSessionScreen() {
     });
   }, []);
 
+  const currentSlot = slotAt(index);
+  const isManual =
+    currentSlot?.kind === 'authored' && currentSlot.question.answerType === 'manual';
+  const manualSteps =
+    currentSlot?.kind === 'authored' ? currentSlot.question.steps ?? [] : [];
+
+  const advanceAfterGrade = useCallback(
+    (correct: boolean, userAnswer: string, correctAnswer: string) => {
+      const q = questionRef.current;
+      reviewRef.current.push({
+        prompt: q.prompt,
+        userAnswer,
+        correctAnswer,
+        correct,
+      });
+
+      const nextIndex = indexRef.current + 1;
+      if (nextIndex >= total) {
+        finishToReview();
+        return;
+      }
+
+      indexRef.current = nextIndex;
+      setIndex(nextIndex);
+      answerRef.current = '';
+      setAnswer('');
+      setHintVisible(false);
+      setScratchOpen(false);
+      setManualPhase('prompt');
+      const nextQ =
+        modeRef.current.kind === 'learn'
+          ? questionFromSlot(slotAt(nextIndex), modeRef.current.skillId)
+          : generateQuantQuestion(skillAt(nextIndex));
+      questionRef.current = nextQ;
+      setQuestion(nextQ);
+    },
+    [finishToReview, skillAt, slotAt, total],
+  );
+
   const submit = useCallback(() => {
     if (stoppedRef.current) return;
+    const slot = slotAt(indexRef.current);
+    if (slot?.kind === 'authored' && slot.question.answerType === 'manual') return;
+
     const user = answerRef.current.trim();
     if (user === '' || user.endsWith('/')) return;
 
     const q = questionRef.current;
-    const slot = slotAt(indexRef.current);
     let correct: boolean;
     if (slot?.kind === 'authored') {
       const graded = gradeAuthoredAnswer(
@@ -209,32 +252,19 @@ export default function QuantSessionScreen() {
     } else {
       correct = answersMatch(user, q.answer);
     }
-    reviewRef.current.push({
-      prompt: q.prompt,
-      userAnswer: user,
-      correctAnswer: q.answer,
-      correct,
-    });
+    advanceAfterGrade(correct, user, q.answer);
+  }, [advanceAfterGrade, slotAt]);
 
-    const nextIndex = indexRef.current + 1;
-    if (nextIndex >= total) {
-      finishToReview();
-      return;
-    }
-
-    indexRef.current = nextIndex;
-    setIndex(nextIndex);
-    answerRef.current = '';
-    setAnswer('');
-    setHintVisible(false);
-    setScratchOpen(false);
-    const nextQ =
-      modeRef.current.kind === 'learn'
-        ? questionFromSlot(slotAt(nextIndex), modeRef.current.skillId)
-        : generateQuantQuestion(skillAt(nextIndex));
-    questionRef.current = nextQ;
-    setQuestion(nextQ);
-  }, [finishToReview, skillAt, slotAt, total]);
+  const selfMark = useCallback(
+    (correct: boolean) => {
+      if (stoppedRef.current || !isManual) return;
+      const slot = slotAt(indexRef.current);
+      const steps =
+        slot?.kind === 'authored' ? (slot.question.steps ?? []).join(' ') : '';
+      advanceAfterGrade(correct, correct ? 'self:correct' : 'self:missed', steps || '(manual)');
+    },
+    [advanceAfterGrade, isManual, slotAt],
+  );
 
   function goHome() {
     stoppedRef.current = true;
@@ -242,7 +272,10 @@ export default function QuantSessionScreen() {
   }
 
   const canSubmit =
-    answer.trim() !== '' && !answer.trim().endsWith('/') && !answer.includes('//');
+    !isManual &&
+    answer.trim() !== '' &&
+    !answer.trim().endsWith('/') &&
+    !answer.includes('//');
 
   const metaKindLabel = mode.kind === 'learn' ? 'Unit' : 'Skill';
 
@@ -273,7 +306,32 @@ export default function QuantSessionScreen() {
           </Pressable>
         </View>
 
-        {scratchOpen ? (
+        {isManual ? (
+          <ScrollView
+            style={styles.promptScroll}
+            contentContainerStyle={styles.promptBlock}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.manualBadge}>Manual · self-mark</Text>
+            <Text style={styles.prompt}>{question.prompt}</Text>
+            {manualPhase === 'revealed' ? (
+              <View style={styles.manualReveal}>
+                <Text style={styles.sectionLabel}>Solution</Text>
+                {manualSteps.length > 0 ? (
+                  manualSteps.map((step, i) => (
+                    <Text key={i} style={styles.hintText}>
+                      {step}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={styles.hintText}>
+                    Review your answer, then mark whether you got it.
+                  </Text>
+                )}
+              </View>
+            ) : null}
+          </ScrollView>
+        ) : scratchOpen ? (
           <ScrollView
             style={styles.scratchPromptScroll}
             contentContainerStyle={styles.scratchPromptBlock}
@@ -297,15 +355,48 @@ export default function QuantSessionScreen() {
           </ScrollView>
         )}
 
-        {/* Keep mounted while collapsed so page strokes survive reopen on this question. */}
-        <View
-          style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
-          pointerEvents={scratchOpen ? 'auto' : 'none'}
-        >
-          <QuantScratchPad ref={scratchRef} resetKey={index} />
-        </View>
+        {!isManual ? (
+          <View
+            style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
+            pointerEvents={scratchOpen ? 'auto' : 'none'}
+          >
+            <QuantScratchPad ref={scratchRef} resetKey={index} />
+          </View>
+        ) : null}
 
-        {scratchOpen ? (
+        {isManual ? (
+          <View style={styles.toolbar}>
+            {manualPhase === 'prompt' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Show solution"
+                onPress={() => setManualPhase('revealed')}
+                style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
+              >
+                <Text style={styles.submitText}>Show solution</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark correct"
+                  onPress={() => selfMark(true)}
+                  style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
+                >
+                  <Text style={styles.submitText}>Got it</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark incorrect"
+                  onPress={() => selfMark(false)}
+                  style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+                >
+                  <Text style={styles.toolBtnText}>Missed it</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : scratchOpen ? (
           <View style={styles.toolbar}>
             <Pressable
               accessibilityRole="button"
@@ -428,6 +519,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
+  },
+  manualBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  manualReveal: {
+    gap: 6,
+    marginTop: 12,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
   },
   chipBtn: {
     paddingHorizontal: 12,

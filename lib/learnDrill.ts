@@ -28,8 +28,11 @@ export type PracticeSlot =
 
 /**
  * Build an interleaved practice sequence (authored + generated).
- * Manual authored questions are included for self-mark sessions but skipped
- * when building auto-graded generator-heavy mixes if mix.authored is 0.
+ *
+ * Mix rules (validated at import): shares ≥ 0 and sum to 1.
+ * `authoredCount = round(n × authored)`, `generatedCount = n − authoredCount`.
+ * Insufficient unique authored questions → **repeat** by cycling the pool
+ * (includes `manual` items — they are never silently dropped).
  */
 export function buildPracticeSequence(
   pack: ContentPack,
@@ -39,14 +42,13 @@ export function buildPracticeSequence(
   if (!practice || practice.sessionSize <= 0) return [];
 
   const n = practice.sessionSize;
-  const mixSum = practice.mix.authored + practice.mix.generated || 1;
-  const authoredShare = practice.mix.authored / mixSum;
+  const mixSum = practice.mix.authored + practice.mix.generated;
+  const authoredShare = mixSum > 0 ? practice.mix.authored / mixSum : 0;
   let authoredCount = Math.round(n * authoredShare);
   let generatedCount = n - authoredCount;
 
-  const autoQuestions = (practice.questions ?? []).filter((q) => q.answerType !== 'manual');
-  const manualQuestions = (practice.questions ?? []).filter((q) => q.answerType === 'manual');
-  const authoredPool = autoQuestions.length > 0 ? autoQuestions : practice.questions ?? [];
+  // Full authored pool including manuals (self-mark in session)
+  const authoredPool = practice.questions ?? [];
 
   if (authoredPool.length === 0) {
     generatedCount = n;
@@ -60,11 +62,11 @@ export function buildPracticeSequence(
   const slots: PracticeSlot[] = [];
 
   for (let i = 0; i < authoredCount; i++) {
+    // Repeat policy: cycle when pool smaller than authoredCount
     const q = authoredPool[i % authoredPool.length]!;
     slots.push({ kind: 'authored', question: q });
   }
 
-  // Generated slots — apply shipped SR among generators when available
   const newTopicTags = practice.generators ?? [];
   if (generatedCount > 0 && newTopicTags.length > 0) {
     const newShare = resolveNewShare(pack, policy);
@@ -86,19 +88,11 @@ export function buildPracticeSequence(
     }
   }
 
-  // Append manuals at end for self-mark (not counted in sessionSize mix)
-  for (const q of manualQuestions) {
-    if (!slots.some((s) => s.kind === 'authored' && s.question.id === q.id)) {
-      // Only auto-include manuals when authored share requested them via pool
-    }
-  }
-
   return shuffle(slots);
 }
 
 /**
- * @deprecated Prefer buildPracticeSequence. Returns generator ids only
- * (authored slots omitted) for legacy session code paths.
+ * @deprecated Prefer buildPracticeSequence.
  */
 export function buildLearnDrillSequence(
   pack: ContentPack,

@@ -11,7 +11,12 @@ import {
   type PackReview,
   type ReviewSource,
 } from '@/content/packs/types';
-import { unitHasActivity } from '@/content/packs/normalize';
+import {
+  fingerprintUnits,
+  normalizePack,
+  parseClozeDeletions,
+  unitHasActivity,
+} from '@/content/packs/normalize';
 import { MATHA_FORMAT_VERSION } from '@/content/store/types';
 
 import type {
@@ -120,10 +125,10 @@ export function validateParsedPackage(parsed: ParsedMathaPackage): ValidatedMath
     });
   }
 
-  // Asset refs already checked in parseUnitJson via collectAssetRefs
-  const contentFingerprint = fingerprintUnits(units);
+  const canonical = units.map((u) => normalizePack(u));
+  const contentFingerprint = fingerprintUnits(canonical);
 
-  return { manifest, tree, units, issues, contentFingerprint };
+  return { manifest, tree, units: canonical, issues, contentFingerprint };
 }
 
 function parseUnitJson(
@@ -148,6 +153,24 @@ function parseUnitJson(
       level: 'warning',
       code: 'unit.id.mismatch',
       message: `Folder ${folderId} vs meta.id ${metaRaw.id}`,
+      path,
+    });
+  }
+
+  // One-way canonical: dual legacy+modern in a package is an error
+  if (obj.practice && obj.drill) {
+    issues.push({
+      level: 'error',
+      code: 'unit.legacy.conflict',
+      message: 'Cannot include both practice and legacy drill — use practice only',
+      path,
+    });
+  }
+  if (obj.review && obj.cards) {
+    issues.push({
+      level: 'error',
+      code: 'unit.legacy.conflict',
+      message: 'Cannot include both review and legacy cards — use review only',
       path,
     });
   }
@@ -276,11 +299,18 @@ function parsePractice(
     authored: Number(mixRaw.authored ?? 0),
     generated: Number(mixRaw.generated ?? 0),
   };
-  if (mix.authored < 0 || mix.generated < 0 || mix.authored + mix.generated <= 0) {
+  if (!(mix.authored >= 0) || !(mix.generated >= 0) || Number.isNaN(mix.authored + mix.generated)) {
     issues.push({
       level: 'error',
       code: 'practice.mix',
-      message: 'practice.mix must have non-negative authored/generated shares summing > 0',
+      message: 'practice.mix.authored and mix.generated must be non-negative numbers',
+      path,
+    });
+  } else if (Math.abs(mix.authored + mix.generated - 1) > 1e-6) {
+    issues.push({
+      level: 'error',
+      code: 'practice.mix.sum',
+      message: 'practice.mix.authored + mix.generated must equal 1',
       path,
     });
   }
@@ -290,11 +320,11 @@ function parsePractice(
     for (const g of o.generators) {
       const id = String(g);
       if (!isKnownGeneratorId(id)) {
-        // Hard fail — never silent discard (spec §5 / §11)
+        // Deliberate first-release policy: unknown generators hard-fail (never silent discard)
         issues.push({
           level: 'error',
           code: 'practice.generator.unknown',
-          message: `Unknown generator id "${id}" — install blocked`,
+          message: `Unknown generator id "${id}" — install blocked (hard-fail policy)`,
           path: `${path}/generators`,
         });
       } else {
@@ -317,26 +347,42 @@ function parsePractice(
       path,
     });
   }
-  if (mix.authored > 0 && questions.filter((q) => q.answerType !== 'manual').length === 0) {
-    const autoCount = questions.length;
-    if (autoCount === 0) {
+  if (mix.authored > 0 && questions.length === 0) {
+    issues.push({
+      level: 'error',
+      code: 'practice.questions.required',
+      message: 'practice.mix.authored > 0 requires authored questions (including manual)',
+      path,
+    });
+  }
+
+  let generatorNewShare: number | undefined;
+  if (o.generatorNewShare != null) {
+    generatorNewShare = Number(o.generatorNewShare);
+    if (!(generatorNewShare >= 0 && generatorNewShare <= 1)) {
       issues.push({
         level: 'error',
-        code: 'practice.questions.required',
-        message: 'practice.mix.authored > 0 requires authored questions',
+        code: 'practice.generatorNewShare',
+        message: 'practice.generatorNewShare must be in [0, 1]',
         path,
       });
     }
   }
 
-  for (const q of questions) {
-    if (q.answerType === 'manual') {
-      issues.push({
-        level: 'warning',
-        code: 'practice.manual',
-        message: `Question ${q.id}: manual questions need review UI (self-mark placeholder at runtime)`,
-        path,
-      });
+  const reviewGenerators: GeneratorId[] = [];
+  if (Array.isArray(o.reviewGenerators)) {
+    for (const g of o.reviewGenerators) {
+      const id = String(g);
+      if (!isKnownGeneratorId(id)) {
+        issues.push({
+          level: 'error',
+          code: 'practice.generator.unknown',
+          message: `Unknown reviewGenerators id "${id}" — install blocked (hard-fail policy)`,
+          path: `${path}/reviewGenerators`,
+        });
+      } else {
+        reviewGenerators.push(id);
+      }
     }
   }
 
@@ -345,6 +391,8 @@ function parsePractice(
     mix,
     generators,
     questions,
+    generatorNewShare,
+    reviewGenerators: reviewGenerators.length > 0 ? reviewGenerators : undefined,
   };
 }
 
@@ -449,11 +497,82 @@ function parseReviewSource(
         return {
           id: String(card.id ?? ''),
           direction: card.direction as 'forward' | 'reverse' | undefined,
-          clozeIndex: card.clozeIndex,
+          clozeIndex: typeof card.clozeIndex === 'number' ? card.clozeIndex : undefined,
         };
       })
     : [];
-  if (cards.length === 0) {
+
+  if (kind === 'basic') {
+    if (cards.length !== 1) {
+      issues.push({
+        level: 'error',
+        code: 'review.basic.cards',
+        message: 'basic source must declare exactly 1 card',
+        path,
+      });
+    }
+  } else if (kind === 'reversible') {
+    if (cards.length < 1) {
+      issues.push({
+        level: 'error',
+        code: 'review.cards',
+        message: 'reversible source must declare card ids',
+        path,
+      });
+    }
+    const dirs = cards.map((c) => c.direction ?? 'forward');
+    const seenDirs = new Set<string>();
+    for (const d of dirs) {
+      if (d !== 'forward' && d !== 'reverse') {
+        issues.push({
+          level: 'error',
+          code: 'review.reversible.direction',
+          message: `Invalid direction "${d}" (use forward|reverse)`,
+          path,
+        });
+      }
+      if (seenDirs.has(d)) {
+        issues.push({
+          level: 'error',
+          code: 'review.reversible.duplicate',
+          message: `Duplicate reversible direction "${d}"`,
+          path,
+        });
+      }
+      seenDirs.add(d);
+    }
+  } else if (kind === 'cloze') {
+    const deletions = parseClozeDeletions(String(o.text ?? ''));
+    const clozeNs = new Set(deletions.map((d) => d.n));
+    if (cards.length === 0) {
+      issues.push({
+        level: 'error',
+        code: 'review.cards',
+        message: 'cloze source must declare at least one card',
+        path,
+      });
+    }
+    for (const card of cards) {
+      const idx = card.clozeIndex;
+      if (idx == null || !clozeNs.has(idx)) {
+        issues.push({
+          level: 'error',
+          code: 'review.cloze.ref',
+          message: `Card ${card.id}: clozeIndex ${idx ?? '(missing)'} not present in text markers`,
+          path,
+        });
+      }
+    }
+    issues.push({
+      level: 'warning',
+      code: 'review.cloze.identity',
+      message:
+        'Cloze card ids are stable identities — bump card id if cloze meaning changes; text/position edits alone do not rename progress',
+      path,
+    });
+  }
+
+  if (cards.length === 0 && kind !== 'basic' && kind !== 'cloze' && kind !== 'reversible') {
     issues.push({
       level: 'error',
       code: 'review.cards',
@@ -674,34 +793,6 @@ function collectNestedIds(
       if (c.id) mark(c.id, 'card');
     }
   }
-}
-
-function fingerprintUnits(units: ContentPack[]): string {
-  const payload = JSON.stringify(
-    units
-      .map((u) => ({
-        id: u.meta.id,
-        version: u.meta.version,
-        title: u.meta.title,
-        lesson: u.lesson,
-        practice: u.practice
-          ? {
-              sessionSize: u.practice.sessionSize,
-              mix: u.practice.mix,
-              generators: u.practice.generators,
-              questions: u.practice.questions,
-            }
-          : undefined,
-        review: u.review,
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id)),
-  );
-  // Simple non-crypto fingerprint
-  let h = 0;
-  for (let i = 0; i < payload.length; i++) {
-    h = (Math.imul(31, h) + payload.charCodeAt(i)) | 0;
-  }
-  return `h${h >>> 0}`;
 }
 
 export function hasErrors(issues: ValidationIssue[]): boolean {

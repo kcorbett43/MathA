@@ -1,6 +1,5 @@
 import type {
   Attribution,
-  CollectionChild,
   CollectionId,
   ContentPack,
   LearnCollection,
@@ -10,7 +9,11 @@ import type {
 /** `.matha` interchange format version supported by this app build. */
 export const MATHA_FORMAT_VERSION = 1 as const;
 
-/** Content store persistence schema (AsyncStorage blob). */
+/**
+ * Content store *persistence* schema (AsyncStorage blob shape).
+ * Bump only for storage migrations — **not** when curriculum content changes.
+ * Content updates use package `revision` (see shipped sync / `.matha` reimport).
+ */
 export const CONTENT_STORE_SCHEMA_VERSION = 1 as const;
 
 export type PackageId = string;
@@ -19,6 +22,7 @@ export type ContentProvenance = 'shipped' | 'imported';
 
 export type InstalledPackage = {
   packageId: PackageId;
+  /** Package content revision — authority for updates (≠ store schemaVersion). */
   revision: number;
   formatVersion: number;
   title?: string;
@@ -28,16 +32,18 @@ export type InstalledPackage = {
   updatedAt: string;
   /** Root entries from the package (collections and/or bare units). */
   roots: Array<{ kind: 'collection' | 'unit'; id: string }>;
+  /** Fingerprint of installed content for same-revision no-op checks. */
+  contentFingerprint?: string;
 };
 
 export type StoreCollection = LearnCollection & {
   packageId?: PackageId;
-  /** Soft-deleted when removed from a reimported package. */
+  /** Soft-deleted when removed from a reimported package; reappears → active again. */
   active: boolean;
 };
 
 export type StoreUnit = ContentPack & {
-  /** Soft-deleted when removed from a reimported package. */
+  /** Soft-deleted when removed; same id returning in a later revision reactivates. */
   active: boolean;
 };
 
@@ -66,7 +72,12 @@ export type ContentStoreSnapshot = {
   placements: PlacementRecord[];
 };
 
+/**
+ * Progress row — keyed by full triple (packageId, unitId, cardId).
+ * See `content/store/ids.ts`.
+ */
 export type ProgressCardRow = {
+  packageId: PackageId;
   unitId: PackId;
   cardId: string;
   /** Opaque learner progress payload — preserved across content updates. */
@@ -75,6 +86,7 @@ export type ProgressCardRow = {
 };
 
 export type ProgressQuestionRow = {
+  packageId: PackageId;
   unitId: PackId;
   questionId: string;
   data: Record<string, unknown>;

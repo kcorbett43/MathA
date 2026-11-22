@@ -5,7 +5,8 @@ import {
   saveContentSnapshot,
   saveProgressSnapshot,
 } from './persistence';
-import { buildShippedSnapshot } from './seed';
+import { CONTENT_STORE_SCHEMA_VERSION } from './types';
+import { buildShippedSnapshot, syncShippedPackage } from './seed';
 import {
   getRuntimeProgress,
   getRuntimeSnapshot,
@@ -26,7 +27,12 @@ export {
   type StoreUnit,
 } from './types';
 
-export { buildShippedSnapshot, SHIPPED_PACKAGE_ID } from './seed';
+export {
+  buildShippedSnapshot,
+  SHIPPED_PACKAGE_ID,
+  shippedPackageRevision,
+  syncShippedPackage,
+} from './seed';
 export {
   getRuntimeSnapshot,
   setRuntimeSnapshot,
@@ -34,29 +40,73 @@ export {
   setRuntimeProgress,
   isContentStoreReady,
 } from './runtime';
+export { progressKey, parseProgressKey } from './ids';
 export { query };
 
 /**
- * Load content + progress from AsyncStorage, seeding shipped packs on first run.
- * Updates the in-memory runtime snapshot used by sync pack helpers.
+ * Load content + progress from AsyncStorage.
+ * Fresh install seeds shipped packs. Existing installs run **revision-aware**
+ * shipped sync (same rules as `.matha` reimport) — content revision ≠
+ * `CONTENT_STORE_SCHEMA_VERSION` storage migrations.
  */
 export async function bootstrapContentStore(): Promise<{
   content: ContentStoreSnapshot;
   progress: ProgressStoreSnapshot;
 }> {
   let content = await loadContentSnapshot();
-  if (!content || content.schemaVersion !== 1) {
+  if (!content || content.schemaVersion !== CONTENT_STORE_SCHEMA_VERSION) {
     content = buildShippedSnapshot();
     await saveContentSnapshot(content);
+  } else {
+    const synced = syncShippedPackage(content);
+    if (synced.status === 'updated' || synced.status === 'seeded') {
+      content = synced.snapshot;
+      await saveContentSnapshot(content);
+    } else {
+      content = synced.snapshot;
+    }
   }
+
   let progress = await loadProgressSnapshot();
   if (!progress) {
     progress = emptyProgress();
     await saveProgressSnapshot(progress);
+  } else {
+    // Migrate legacy progress rows missing packageId (pre-triple keys)
+    progress = migrateProgress(progress, content);
   }
   setRuntimeSnapshot(content);
   setRuntimeProgress(progress);
   return { content, progress };
+}
+
+function migrateProgress(
+  progress: ProgressStoreSnapshot,
+  content: ContentStoreSnapshot,
+): ProgressStoreSnapshot {
+  let changed = false;
+  const cards = progress.cards.map((row) => {
+    const legacy = row as ProgressStoreSnapshot['cards'][number] & { packageId?: string };
+    if (legacy.packageId) return row;
+    changed = true;
+    const unit = content.units[row.unitId];
+    return {
+      ...row,
+      packageId: unit?.meta.packageId ?? 'unknown',
+    };
+  });
+  const questions = progress.questions.map((row) => {
+    const legacy = row as ProgressStoreSnapshot['questions'][number] & { packageId?: string };
+    if (legacy.packageId) return row;
+    changed = true;
+    const unit = content.units[row.unitId];
+    return {
+      ...row,
+      packageId: unit?.meta.packageId ?? 'unknown',
+    };
+  });
+  if (changed) void saveProgressSnapshot({ ...progress, cards, questions });
+  return changed ? { ...progress, cards, questions } : progress;
 }
 
 /** Persist a new content snapshot (atomic replace) and update runtime. */
