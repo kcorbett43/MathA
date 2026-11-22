@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, Stop, Line as SvgLine } from 'react-native-svg';
 
 import { dayKey } from '@/lib/storage';
 import { colors } from '@/lib/theme';
@@ -10,12 +9,15 @@ type ScoreChartProps = {
   scores: SessionScore[];
 };
 
-type Point = { x: number; y: number; score: number; id: string; at: number };
+type Point = { x: number; y: number; score: number; id: string };
 
 /**
  * Chess.com-style Elo chart: continuous score-over-time line.
- * Sessions are plotted chronologically; X is calendar-day spaced (multiple
- * sessions on the same day share the day column, ordered within the day).
+ * Drawn with plain RN Views (no react-native-svg) so Expo Go never hits
+ * "Unable to resolve module react-native-svg".
+ *
+ * Sessions are chronological; X is calendar-day spaced (multiple sessions
+ * on the same day are slightly staggered).
  */
 export function ScoreChart({ scores }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
@@ -34,9 +36,15 @@ export function ScoreChart({ scores }: ScoreChartProps) {
   const padT = 16;
   const padB = 16;
 
-  const { points, maxScore, minScore, dayLabels } = useMemo(() => {
-    if (sorted.length === 0) {
-      return { points: [] as Point[], maxScore: 1, minScore: 0, dayLabels: [] as string[] };
+  const { points, yTop, yBot, dayLabels, segments } = useMemo(() => {
+    if (sorted.length === 0 || width <= 0) {
+      return {
+        points: [] as Point[],
+        yTop: 1,
+        yBot: 0,
+        dayLabels: [] as string[],
+        segments: [] as { key: string; left: number; top: number; width: number; angle: number }[],
+      };
     }
 
     const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
@@ -51,7 +59,6 @@ export function ScoreChart({ scores }: ScoreChartProps) {
     const scoresOnly = sorted.map((s) => s.score);
     const maxS = Math.max(...scoresOnly, 1);
     const minS = Math.min(...scoresOnly, 0);
-    // Pad y-range slightly so the line doesn't hug the edges
     const span = Math.max(maxS - minS, 1);
     const yMax = maxS + span * 0.08;
     const yMin = Math.max(0, minS - span * 0.08);
@@ -68,20 +75,33 @@ export function ScoreChart({ scores }: ScoreChartProps) {
         dayCount === 1 ? padL + plotW / 2 : padL + (di / (dayCount - 1)) * plotW;
 
       daySessions.forEach((s, si) => {
-        // Slight horizontal stagger within a day so multiple sessions remain visible
         const stagger =
           daySessions.length === 1
             ? 0
-            : ((si / (daySessions.length - 1)) - 0.5) * Math.min(18, plotW / Math.max(dayCount, 1) * 0.35);
+            : ((si / (daySessions.length - 1)) - 0.5) *
+              Math.min(18, (plotW / Math.max(dayCount, 1)) * 0.35);
         const x = dayX + stagger;
         const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
-        pts.push({
-          x,
-          y,
-          score: s.score,
-          id: s.id,
-          at: new Date(s.completedAt).getTime(),
-        });
+        pts.push({ x, y, score: s.score, id: s.id });
+      });
+    }
+
+    const segs: { key: string; left: number; top: number; width: number; angle: number }[] = [];
+    const stroke = 2.5;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      // Position from segment midpoint so RN's default center transform-origin works.
+      segs.push({
+        key: `${a.id}-${b.id}`,
+        left: (a.x + b.x) / 2 - len / 2,
+        top: (a.y + b.y) / 2 - stroke / 2,
+        width: len,
+        angle,
       });
     }
 
@@ -90,22 +110,14 @@ export function ScoreChart({ scores }: ScoreChartProps) {
         ? uniqueDays
         : [uniqueDays[0], uniqueDays[uniqueDays.length - 1]];
 
-    return { points: pts, maxScore: yMax, minScore: yMin, dayLabels: labels };
+    return {
+      points: pts,
+      yTop: Math.round(yMax),
+      yBot: Math.round(yMin),
+      dayLabels: labels,
+      segments: segs,
+    };
   }, [sorted, width]);
-
-  const linePath = useMemo(() => {
-    if (points.length === 0) return '';
-    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  }, [points]);
-
-  const areaPath = useMemo(() => {
-    if (points.length === 0) return '';
-    const baseY = chartH - padB;
-    const head = `M ${points[0].x} ${baseY} L ${points[0].x} ${points[0].y}`;
-    const mid = points.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ');
-    const tail = `L ${points[points.length - 1].x} ${baseY} Z`;
-    return `${head} ${mid} ${tail}`;
-  }, [points]);
 
   if (scores.length === 0) {
     return (
@@ -120,9 +132,6 @@ export function ScoreChart({ scores }: ScoreChartProps) {
     if (w > 0 && Math.abs(w - width) > 1) setWidth(w);
   };
 
-  const yTop = Math.round(maxScore);
-  const yBot = Math.round(minScore);
-
   return (
     <View style={styles.wrap}>
       <View style={styles.chart} onLayout={onLayout}>
@@ -131,48 +140,31 @@ export function ScoreChart({ scores }: ScoreChartProps) {
           <Text style={styles.axisLabel}>{yBot}</Text>
         </View>
         <View style={styles.plotCol}>
-          {width > 0 ? (
-            <Svg width={width} height={chartH}>
-              <Defs>
-                <LinearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.28" />
-                  <Stop offset="100%" stopColor={colors.primary} stopOpacity="0.02" />
-                </LinearGradient>
-              </Defs>
-              <SvgLine
-                x1={padL}
-                y1={chartH - padB}
-                x2={width - padR}
-                y2={chartH - padB}
-                stroke={colors.border}
-                strokeWidth={1}
+          <View style={[styles.plot, { height: chartH }]}>
+            <View style={[styles.baseline, { left: padL, right: padR, bottom: padB }]} />
+            {segments.map((seg) => (
+              <View
+                key={seg.key}
+                pointerEvents="none"
+                style={[
+                  styles.segment,
+                  {
+                    left: seg.left,
+                    top: seg.top,
+                    width: seg.width,
+                    transform: [{ rotate: `${seg.angle}deg` }],
+                  },
+                ]}
               />
-              {areaPath ? <Path d={areaPath} fill="url(#scoreFill)" /> : null}
-              {linePath ? (
-                <Path
-                  d={linePath}
-                  stroke={colors.primary}
-                  strokeWidth={2.5}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : null}
-              {points.map((p) => (
-                <Circle
-                  key={p.id}
-                  cx={p.x}
-                  cy={p.y}
-                  r={4}
-                  fill={colors.surface}
-                  stroke={colors.primary}
-                  strokeWidth={2}
-                />
-              ))}
-            </Svg>
-          ) : (
-            <View style={{ height: chartH }} />
-          )}
+            ))}
+            {points.map((p) => (
+              <View
+                key={p.id}
+                pointerEvents="none"
+                style={[styles.dot, { left: p.x - 4, top: p.y - 4 }]}
+              />
+            ))}
+          </View>
           <View style={styles.axisX}>
             <Text style={styles.axisLabel}>{dayLabels[0] ?? ''}</Text>
             {dayLabels.length > 1 ? (
@@ -229,6 +221,30 @@ const styles = StyleSheet.create({
   },
   plotCol: {
     flex: 1,
+  },
+  plot: {
+    position: 'relative',
+    width: '100%',
+  },
+  baseline: {
+    position: 'absolute',
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  segment: {
+    position: 'absolute',
+    height: 2.5,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  dot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   axisX: {
     flexDirection: 'row',
