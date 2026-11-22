@@ -3,59 +3,30 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  cardsInCollection,
-  cardsInPack,
-  collectionById,
-  packById,
-  type PackCard,
-} from '@/content/packs';
+import { packById } from '@/content/packs';
 import { colors } from '@/lib/theme';
 
 function paramString(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
-type DeckSource =
-  | { kind: 'pack'; title: string; cards: PackCard[] }
-  | { kind: 'collection'; title: string; cards: PackCard[] }
-  | { kind: 'missing' };
-
 export default function LearnCardsReviewScreen() {
-  const params = useLocalSearchParams<{ packId?: string; collectionId?: string }>();
+  const params = useLocalSearchParams<{ packId?: string }>();
   const packId = paramString(params.packId);
-  const collectionId = paramString(params.collectionId);
+  const pack = useMemo(() => packById(packId), [packId]);
+  const cards = pack?.cards ?? [];
 
-  const source = useMemo((): DeckSource => {
-    if (packId) {
-      const pack = packById(packId);
-      if (!pack) return { kind: 'missing' };
-      return { kind: 'pack', title: pack.meta.title, cards: cardsInPack(pack) };
-    }
-    if (collectionId) {
-      const collection = collectionById(collectionId);
-      if (!collection) return { kind: 'missing' };
-      return {
-        kind: 'collection',
-        title: collection.title,
-        cards: cardsInCollection(collection),
-      };
-    }
-    return { kind: 'missing' };
-  }, [packId, collectionId]);
-
-  const cards = source.kind === 'missing' ? [] : source.cards;
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
   const safeIndex = cards.length === 0 ? 0 : Math.min(index, cards.length - 1);
   const card = cards[safeIndex];
 
-  if (source.kind === 'missing') {
+  if (!pack) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
         <View style={styles.missing}>
-          <Text style={styles.title}>Deck not found</Text>
+          <Text style={styles.title}>Unit not found</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
@@ -73,9 +44,7 @@ export default function LearnCardsReviewScreen() {
       <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
         <View style={styles.missing}>
           <Text style={styles.title}>No cards yet</Text>
-          <Text style={styles.lead}>
-            This {source.kind === 'pack' ? 'unit' : 'collection'} has no flash cards authored.
-          </Text>
+          <Text style={styles.lead}>This unit has no flash cards.</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
@@ -98,7 +67,7 @@ export default function LearnCardsReviewScreen() {
       <View style={styles.shell}>
         <View style={styles.header}>
           <Text style={styles.kicker}>Review cards</Text>
-          <Text style={styles.title}>{source.title}</Text>
+          <Text style={styles.title}>{pack.meta.title}</Text>
           <Text style={styles.progress}>
             {safeIndex + 1} / {cards.length}
           </Text>

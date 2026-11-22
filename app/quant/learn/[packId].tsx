@@ -3,8 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LessonCardBlock } from '@/components/LessonCardBlock';
-import { cardsInPack, packById } from '@/content/packs';
+import { packById } from '@/content/packs';
 import { formatMixLabel } from '@/lib/learnDrill';
 import { colors } from '@/lib/theme';
 
@@ -12,7 +11,6 @@ export default function QuantLearnLessonScreen() {
   const params = useLocalSearchParams<{ packId?: string }>();
   const packId = Array.isArray(params.packId) ? params.packId[0] : params.packId;
   const pack = useMemo(() => packById(packId), [packId]);
-  const cards = useMemo(() => (pack ? cardsInPack(pack) : []), [pack]);
 
   if (!pack) {
     return (
@@ -31,7 +29,7 @@ export default function QuantLearnLessonScreen() {
     );
   }
 
-  const { lesson, meta } = pack;
+  const { lesson, meta, cards } = pack;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -47,29 +45,13 @@ export default function QuantLearnLessonScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lesson</Text>
-            {lesson.blocks.map((block, i) => {
-              if (block.type === 'text') {
-                return (
-                  <Text key={`t-${i}`} style={styles.blockText}>
-                    {block.body}
-                  </Text>
-                );
-              }
-              if (block.type === 'callout') {
-                return (
-                  <View key={`c-${i}`} style={styles.callout}>
-                    <Text style={styles.calloutText}>{block.body}</Text>
-                  </View>
-                );
-              }
-              return (
-                <LessonCardBlock
-                  key={block.id}
-                  card={{ id: block.id, front: block.front, back: block.back }}
-                />
-              );
-            })}
+            <Text style={styles.sectionTitle}>Definitions</Text>
+            {lesson.definitions.map((def) => (
+              <View key={def.term} style={styles.defBlock}>
+                <Text style={styles.defTerm}>{def.term}</Text>
+                <Text style={styles.defBody}>{def.body}</Text>
+              </View>
+            ))}
           </View>
 
           {cards.length > 0 ? (
@@ -87,7 +69,7 @@ export default function QuantLearnLessonScreen() {
               <View style={styles.reviewText}>
                 <Text style={styles.reviewLabel}>Review cards</Text>
                 <Text style={styles.reviewBlurb}>
-                  Flip through {cards.length} {cards.length === 1 ? 'card' : 'cards'} from this
+                  Flip through {cards.length} {cards.length === 1 ? 'card' : 'cards'} for this
                   unit
                 </Text>
               </View>
@@ -204,22 +186,19 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: -4,
   },
-  blockText: {
+  defBlock: {
+    gap: 4,
+    paddingVertical: 4,
+  },
+  defTerm: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  defBody: {
     fontSize: 15,
     lineHeight: 22,
     color: colors.subtle,
-  },
-  callout: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.chip,
-  },
-  calloutText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.subtle,
-    fontWeight: '600',
   },
   reviewEntry: {
     flexDirection: 'row',

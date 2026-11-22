@@ -26,8 +26,8 @@ export {
   type ContentPack,
   type GeneratorId,
   type LearnCollection,
-  type LessonBlock,
   type PackCard,
+  type PackDefinition,
   type PackDrill,
   type PackExample,
   type PackId,
@@ -143,46 +143,9 @@ export function parentCollectionId(
   return path[path.length - 2]?.id;
 }
 
-/** Flash cards authored as `type: 'card'` blocks in a pack lesson (order preserved). */
+/** Unit Review deck — `pack.cards` (order preserved). */
 export function cardsInPack(pack: ContentPack): PackCard[] {
-  const out: PackCard[] = [];
-  for (const block of pack.lesson.blocks) {
-    if (block.type !== 'card') continue;
-    out.push({ id: block.id, front: block.front, back: block.back });
-  }
-  return out;
-}
-
-/**
- * All flash cards under a collection (recursive leaf packs, children order).
- * Dedupes by card `id` if the same id appears twice.
- */
-export function cardsInCollection(collection: LearnCollection): PackCard[] {
-  const out: PackCard[] = [];
-  const seen = new Set<string>();
-  collectCards(collection, out, seen);
-  return out;
-}
-
-function collectCards(
-  collection: LearnCollection,
-  out: PackCard[],
-  seen: Set<string>,
-): void {
-  for (const child of collection.children) {
-    if (child.kind === 'pack') {
-      const pack = packMap.get(child.id);
-      if (!pack) continue;
-      for (const card of cardsInPack(pack)) {
-        if (seen.has(card.id)) continue;
-        seen.add(card.id);
-        out.push(card);
-      }
-    } else {
-      const nested = collectionMap.get(child.id);
-      if (nested) collectCards(nested, out, seen);
-    }
-  }
+  return [...pack.cards];
 }
 
 /**

@@ -4,8 +4,9 @@ import type { QuantSkillId } from '@/lib/quantTypes';
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
  * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
- * v4: embeddable lesson **flash cards** (`front`/`back`/`id`) as first-class
- *     blocks; definitions migrate into cards; Review deck for pack/collection.
+ * v4: unit-scoped **flash cards** (`id` / `front` / `back`) for Review.
+ *     Lesson stays normal (`intro` / `definitions` / `examples`); cards are a
+ *     separate list on the pack — not section-linked, not a lesson deck.
  */
 export const CONTENT_PACK_SCHEMA_VERSION = 4 as const;
 
@@ -107,27 +108,23 @@ export type PackLinks = {
   prerequisites: PackId[];
 };
 
+export type PackDefinition = {
+  term: string;
+  body: string;
+};
+
 /**
- * Embeddable flash card. Same object is shown inline in the lesson (callout /
- * definition style) and collected into the pack/collection Review deck.
+ * Flash card for this unit’s Review deck. Unit-scoped only — not tied to a
+ * lesson section, and not rendered as the lesson itself.
  */
 export type PackCard = {
-  /** Stable id within the pack (and unique across a collection deck). */
+  /** Stable id within the pack. */
   id: string;
   /** Prompt / term / formula name shown first. */
   front: string;
   /** Definition, formula, or short explanation. */
   back: string;
 };
-
-/**
- * Ordered lesson content. Cards are first-class blocks; prose/callouts sit
- * beside them. v3 `definitions[]` migrated to `type: 'card'` blocks.
- */
-export type LessonBlock =
-  | { type: 'text'; body: string }
-  | { type: 'callout'; body: string }
-  | ({ type: 'card' } & PackCard);
 
 /**
  * Try-first worked example. Lesson UI shows title + prompt only; the learner
@@ -149,8 +146,7 @@ export type PackExample = {
 export type PackLesson = {
   /** 1–2 sentences: what this unit unlocks / why it matters. */
   intro: string;
-  /** Teachable stream: text, callouts, and embeddable flash cards. */
-  blocks: LessonBlock[];
+  definitions: PackDefinition[];
   examples: PackExample[];
 };
 
@@ -191,12 +187,14 @@ export type PackMeta = {
 };
 
 /**
- * One Learn unit: lesson copy + drill mix config + graph links.
+ * One Learn unit: normal lesson copy + optional Review card list + drill mix.
  * Authors add packs as TS modules matching this shape — no new screens required.
  * Placement in the Learn tree is via `LearnCollection.children`.
  */
 export type ContentPack = {
   meta: PackMeta;
   lesson: PackLesson;
+  /** Unit Review deck (flip study). Empty or omit when the unit has no cards. */
+  cards: PackCard[];
   drill: PackDrill;
 };

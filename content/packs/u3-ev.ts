@@ -4,7 +4,7 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU3Ev: ContentPack = {
   meta: {
     id: 'u3-ev',
-    version: 4,
+    version: 5,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Expected value',
     order: 3,
@@ -18,44 +18,18 @@ export const packU3Ev: ContentPack = {
   lesson: {
     intro:
       'Expected value is the interview workhorse: define E[X] from the PMF, then lean on linearity so you do not expand every joint distribution. Review dice and urns keep classical counting warm.',
-    blocks: [
+    definitions: [
       {
-        type: 'text',
-        body: 'Two formulas dominate early EV work: the discrete sum from the PMF, and linearity (especially with indicators). Keep both on cards.',
+        term: 'E[X] (discrete)',
+        body: 'E[X] = Σ x · P(X = x) over all values x that X can take.',
       },
       {
-        type: 'card',
-        id: 'u3-ex-def',
-        front: 'E[X] (discrete)',
-        back: 'E[X] = Σ x · P(X = x) over all values x that X can take.',
+        term: 'Fair die mean',
+        body: 'For a fair F-sided die on faces 1…F, E[X] = (F + 1) / 2.',
       },
       {
-        type: 'card',
-        id: 'u3-fair-die',
-        front: 'Fair die mean',
-        back: 'For a fair F-sided die on faces 1…F, E[X] = (F + 1) / 2.',
-      },
-      {
-        type: 'card',
-        id: 'u3-linearity',
-        front: 'Linearity',
-        back: 'E[X + Y] = E[X] + E[Y] always (no independence required). Indicator form: E[# successes] = Σ P(trial i succeeds).',
-      },
-      {
-        type: 'callout',
-        body: 'Independence is not required for linearity. Use it to avoid writing the full joint of X and Y.',
-      },
-      {
-        type: 'card',
-        id: 'u3-indicator',
-        front: 'Indicator I_A',
-        back: 'I_A = 1 if event A occurs, else 0. Then E[I_A] = P(A).',
-      },
-      {
-        type: 'card',
-        id: 'u3-two-point',
-        front: 'Two-point RV',
-        back: 'If X = a with probability p and X = b otherwise, E[X] = a·p + b·(1 − p).',
+        term: 'Linearity',
+        body: 'E[X + Y] = E[X] + E[Y] always (no independence required). Indicator form: E[# successes] = Σ P(trial i succeeds).',
       },
     ],
     examples: [
@@ -91,10 +65,36 @@ export const packU3Ev: ContentPack = {
       },
     ],
   },
+  cards: [
+    {
+      id: 'u3-ex-def',
+      front: 'E[X] (discrete)',
+      back: 'E[X] = Σ x · P(X = x) over all values x that X can take.',
+    },
+    {
+      id: 'u3-fair-die',
+      front: 'Fair die mean',
+      back: 'For a fair F-sided die on faces 1…F, E[X] = (F + 1) / 2.',
+    },
+    {
+      id: 'u3-linearity',
+      front: 'Linearity',
+      back: 'E[X + Y] = E[X] + E[Y] always (no independence required). Indicator form: E[# successes] = Σ P(trial i succeeds).',
+    },
+    {
+      id: 'u3-indicator',
+      front: 'Indicator I_A',
+      back: 'I_A = 1 if event A occurs, else 0. Then E[I_A] = P(A).',
+    },
+    {
+      id: 'u3-two-point',
+      front: 'Two-point RV',
+      back: 'If X = a with probability p and X = b otherwise, E[X] = a·p + b·(1 − p).',
+    },
+  ],
   drill: {
     n: 12,
     newShare: 0.7,
     newTopicTags: ['ev'],
-    // reviewTopicTags derived from prerequisites → dice + urns
   },
 };

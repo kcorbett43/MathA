@@ -4,7 +4,7 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU1Dice: ContentPack = {
   meta: {
     id: 'u1-dice',
-    version: 4,
+    version: 5,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Counting & dice',
     order: 1,
@@ -18,50 +18,22 @@ export const packU1Dice: ContentPack = {
   lesson: {
     intro:
       'Interviewers use fair dice to check that you can size a sample space and count favorable outcomes without a calculator. This unit builds that reflex.',
-    blocks: [
+    definitions: [
       {
-        type: 'text',
-        body: 'Start with the language of equally likely outcomes. The flash cards below are the definitions you will reuse in every later unit.',
+        term: 'Outcome',
+        body: 'One possible result of an experiment (e.g. die A shows 3 and die B shows 4).',
       },
       {
-        type: 'card',
-        id: 'u1-outcome',
-        front: 'Outcome',
-        back: 'One possible result of an experiment (e.g. die A shows 3 and die B shows 4).',
+        term: 'Sample space Ω',
+        body: 'The set of all equally likely outcomes. For two fair F-sided dice, |Ω| = F × F.',
       },
       {
-        type: 'card',
-        id: 'u1-sample-space',
-        front: 'Sample space Ω',
-        back: 'The set of all equally likely outcomes. For two fair F-sided dice, |Ω| = F × F.',
+        term: 'Event A',
+        body: 'A subset of Ω (e.g. “sum equals 7”).',
       },
       {
-        type: 'card',
-        id: 'u1-event',
-        front: 'Event A',
-        back: 'A subset of Ω (e.g. “sum equals 7”).',
-      },
-      {
-        type: 'card',
-        id: 'u1-classical-prob',
-        front: 'Classical probability',
-        back: 'When every outcome is equally likely, P(A) = |A| / |Ω|.',
-      },
-      {
-        type: 'callout',
-        body: 'Always fix ordered pairs (or ordered n-tuples) when dice are distinguishable. “Sum = 7 on 2d6” is six ordered pairs out of 36, not three unordered pairs.',
-      },
-      {
-        type: 'card',
-        id: 'u1-two-dice-size',
-        front: '|Ω| for two fair F-sided dice',
-        back: 'F × F ordered pairs (faces 1…F on each die).',
-      },
-      {
-        type: 'card',
-        id: 'u1-sum-count',
-        front: 'Counting P(sum = s) on 2dF',
-        back: 'Count ordered pairs (a, b) with a + b = s and 1 ≤ a,b ≤ F, then divide by F².',
+        term: 'Classical probability',
+        body: 'When every outcome is equally likely, P(A) = |A| / |Ω|.',
       },
     ],
     examples: [
@@ -100,10 +72,41 @@ export const packU1Dice: ContentPack = {
       },
     ],
   },
+  cards: [
+    {
+      id: 'u1-outcome',
+      front: 'Outcome',
+      back: 'One possible result of an experiment (e.g. die A shows 3 and die B shows 4).',
+    },
+    {
+      id: 'u1-sample-space',
+      front: 'Sample space Ω',
+      back: 'The set of all equally likely outcomes. For two fair F-sided dice, |Ω| = F × F.',
+    },
+    {
+      id: 'u1-event',
+      front: 'Event A',
+      back: 'A subset of Ω (e.g. “sum equals 7”).',
+    },
+    {
+      id: 'u1-classical-prob',
+      front: 'Classical probability',
+      back: 'When every outcome is equally likely, P(A) = |A| / |Ω|.',
+    },
+    {
+      id: 'u1-two-dice-size',
+      front: '|Ω| for two fair F-sided dice',
+      back: 'F × F ordered pairs (faces 1…F on each die).',
+    },
+    {
+      id: 'u1-sum-count',
+      front: 'Counting P(sum = s) on 2dF',
+      back: 'Count ordered pairs (a, b) with a + b = s and 1 ≤ a,b ≤ F, then divide by F².',
+    },
+  ],
   drill: {
     n: 10,
     newShare: 1,
     newTopicTags: ['dice'],
-    // No priors — review pool empty (policy standard still → 100% new)
   },
 };
