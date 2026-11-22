@@ -1,14 +1,15 @@
-# Quant Learn content-pack schema (v4)
+# Quant Learn content-pack schema (v5)
 
-Versioned, data-driven packs drive **Learn** units. Authors add a pack module under `content/packs/`, register it in `index.ts`, place it in a **collection**’s `children`, and the existing Learn screens + Quant session shell pick it up — **no new routes per unit**.
+Versioned, data-driven units drive **Learn**. Authors may still add a pack module under `content/packs/`, register it in `registry.ts`, and place it in a **collection**’s `children`. At runtime, shipped packs are **seeded into the persistent content store** — the same store that holds imported `.matha` packages.
 
-Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **4**). Bump when the pack shape breaks.
+Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **5**). Bump when the pack shape breaks.
 
-**v2 added:** curriculum **links** (`before` / `after` / `prerequisites`) and named **spaced-repetition policies** (`none` | `light` | `standard` | `heavy`). Runtime still applies the **standard / current** mix only (`RUNTIME_SPACED_REP_POLICY`).
+**v2:** curriculum **links** + named **spaced-repetition policies**.  
+**v3:** nested **collections** tree.  
+**v4:** unit-scoped **flash cards** (`cards[]`).  
+**v5:** optional **lesson / practice / review**; authored answer types; review kinds (basic / reversible / cloze); **content store** + **`.matha` import**.
 
-**v3 adds:** nested **collections** tree (unlimited depth). Navigation is **Learn → browse collections → units**, with UI breadcrumbs. Not fixed book/chapter levels.
-
-**v4 adds:** unit-scoped **flash cards** (`id` / `front` / `back`) as a separate `cards[]` list on the pack. Cards are data on the unit only — **not** shown in the lesson UI. Lesson = prose + examples + practice. Flip study is a separate **Review cards** entry on the unit list (collection screen).
+Interchange contract: project doc `matha-import-spec.md` (native ZIP format). Format version: `MATHA_FORMAT_VERSION = 1`.
 
 ## Hierarchy
 
@@ -16,174 +17,131 @@ Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently 
 Learn
  └── Collection (any depth)
       ├── Collection …
-      └── Unit / pack (leaf)
+      └── Unit (leaf)
 ```
 
-v1 tree:
+Activities on a unit are **independently optional**. UI shows Lesson / Practice / Review only when present. **Empty units are rejected** (no lesson, practice, or review).
 
-```
-c-foundations
- ├── u1-dice
- ├── u2-urns
- └── u3-ev
-```
+## Content store
 
-| Concern | Location |
-|---------|----------|
-| Collections registry | `content/packs/collections.ts` → `LEARN_COLLECTIONS`, `LEARN_ROOT_COLLECTION_IDS` |
-| Helpers | `collectionById`, `rootCollections`, `resolveCollectionChildren`, `collectionPath`, `countLeafPacks`, `cardsInPack` |
-| Learn home | `app/quant/learn/index.tsx` |
-| Collection browser | `app/quant/learn/collection/[collectionId].tsx` (breadcrumbs) |
-| Lesson UI | `app/quant/learn/[packId].tsx` (prose + examples + practice only) |
-| Card flip study | `app/quant/learn/cards.tsx` (`packId` only); entry from collection unit list |
+| Rule | Detail |
+|------|--------|
+| Persistence | AsyncStorage key `matha.content.v1` |
+| Model | Shipped + imported share `StoreUnit` / `StoreCollection` |
+| Progress | Separate key `matha.progress.v1` — never required in share packages |
+| Editability | Imported content is read-only; update via reimport |
+| Soft delete | Removed ids marked `active: false`; history kept |
 
-## Collection shape
+Bootstrap: `bootstrapContentStore()` seeds shipped TS packs (`matha.shipped.probability-foundations`) on first launch.
+
+## Unit shape (v5)
 
 ```ts
-type CollectionChild =
-  | { kind: 'collection'; id: string }
-  | { kind: 'pack'; id: string };
-
-type LearnCollection = {
-  id: string;           // e.g. "c-foundations"
-  title: string;
-  blurb?: string;
-  children: CollectionChild[];  // nested collections and/or leaf packs
-};
-```
-
-Depth is unlimited. Placement of a pack in the tree is via some collection’s `children` — packs do **not** carry a parent id.
-
-## Pack shape
-
-```ts
-type PackCard = {
-  id: string;    // stable within the pack
-  front: string; // term / prompt / formula name
-  back: string;  // definition / formula / short explanation
-};
-
 type ContentPack = {
-  meta: {
-    id: string;                 // stable slug, e.g. "u1-dice"
-    version: number;            // content revision (independent of schema)
-    schemaVersion: 4;
-    title: string;
-    order: number;              // display hint; children[] order is authoritative
-    blurb: string;
-    links: {
-      before: string[];         // pack ids immediately before this unit
-      after: string[];          // pack ids immediately after this unit
-      prerequisites: string[];  // unlock deps (future) + default SR pool source
-    };
-  };
-  lesson: {
-    intro: string;
-    definitions: { term: string; body: string }[];
-    examples: {
-      title: string;
-      prompt: string;
-      answer: string;           // canonical int or reduced n/d (graded)
-      steps: string[];         // revealed after Submit or Show solution
-      hint?: string;           // optional — same Hint control as Practice
-    }[];
-  };
-  cards: PackCard[];            // unit Review deck (may be empty)
-  drill: {
-    n: number;
-    newShare: number;               // authored share for policy = standard
-    newTopicTags: GeneratorId[];
-    reviewTopicTags?: GeneratorId[]; // optional; else derived from prerequisites
-  };
+  meta: PackMeta;           // id, version, schemaVersion, title, order, blurb, links, tags?, attribution?, packageId?
+  lesson?: PackLesson;      // intro?, definitions[], examples[]
+  practice?: PackPractice;  // sessionSize, mix, generators?, questions?
+  review?: PackReview;      // sources[] → expand to cards
+  // Legacy (normalized on load):
+  cards?: PackCard[];
+  drill?: PackDrill;
 };
 ```
 
-`GeneratorId` matches shipped Quant Practice skills: `"dice" | "urns" | "ev"`.
+### Practice
 
-## Flash cards (unit data only)
-
-| Surface | Behavior |
-|---------|----------|
-| Lesson | Intro / definitions / examples / Start practice — **no** cards UI |
-| Unit list (collection) | **Review cards · N** under each unit that has `cards.length > 0` |
-| Flip study (`learn/cards?packId=…`) | Front → tap flip → Previous / Next / Done |
-
-Helper: `cardsInPack(pack)` → `pack.cards`.
-
-Author cards for definitions and formulas the learner should retain; keep lesson copy independent.
-
-## Try-first examples
-
-Worked examples are **not** solution dumps on the lesson screen.
-
-| Surface | Behavior |
-|---------|----------|
-| Lesson (`learn/[packId]`) | Title + prompt + **Try** only — no steps/answer |
-| Attempt (`learn/example`) | Same Quant drill chrome: answer box, NumberPad, Scratch, optional Hint, **Submit**, **Show solution** |
-| After Submit | Grade with `answersMatch`; reveal Correct / Not quite, canonical `answer`, and `steps` |
-| After Show solution | Reveal `answer` + `steps` without requiring an attempt |
-
-Authors **must** supply `answer` + `steps` on every example so grading and reveal work.
-
-## Unit links (graph)
-
-| Field | Meaning |
-|-------|---------|
-| `before` | Immediate predecessors on the Learn path |
-| `after` | Immediate successors |
-| `prerequisites` | Units that gate unlock later; also the default set whose `newTopicTags` feed the review pool when `reviewTopicTags` is omitted |
-
-v1 shipped packs (path within `c-foundations`):
-
-```
-u1-dice  →  u2-urns  →  u3-ev
+```ts
+practice: {
+  sessionSize: number;
+  mix: { authored: number; generated: number }; // shares
+  generators?: GeneratorId[];  // built-in only: dice | urns | ev
+  questions?: AuthoredQuestion[];
+  // store/runtime only (not in .matha):
+  generatorNewShare?: number;
+  reviewGenerators?: GeneratorId[];
+}
 ```
 
-| Pack | before | after | prerequisites |
-|------|--------|-------|---------------|
-| `u1-dice` | — | `u2-urns` | — |
-| `u2-urns` | `u1-dice` | `u3-ev` | `u1-dice` |
-| `u3-ev` | `u2-urns` | — | `u1-dice`, `u2-urns` |
+**Answer types:** `rational` | `integer` | `text` (+ `aliases`) | `choice` | `multiChoice` | `manual`.  
+Unknown generator ids **hard-fail** validation (never silent discard).  
+`manual` imports with a preview warning; auto sessions grade only auto types.
 
-**Unlock (product):** all units remain **open** in v1 UI. `prerequisites` is schema-ready for a future sequential mode.
+### Review
 
-## Spaced-repetition policies
+```ts
+review: {
+  sources: [{
+    id, kind: 'basic' | 'reversible' | 'cloze',
+    front?, back?, text?,  // cloze uses {{cN::answer}} or {{cN::answer::hint}}
+    cards: [{ id, direction?, clozeIndex? }],
+    tags?
+  }]
+}
+```
 
-Named policies in `SPACED_REP_POLICIES` (`types.ts`):
+Progress keys off **card id**. Helper: `expandReviewCards` / `cardsInPack`.
 
-| Id | Review share | Notes |
-|----|-------------:|-------|
-| `none` | 0% | 100% new |
-| `light` | ~15% | |
-| `standard` | ~25–30% | **Current curriculum** — uses each pack’s authored `drill.newShare` |
-| `heavy` | ~40% | |
+### Lesson examples
 
-- **Runtime today:** always `RUNTIME_SPACED_REP_POLICY = 'standard'` → apply pack `newShare` (U1 100%, U2 ~75/25, U3 ~70/30).
-- **Later:** learner picks a policy; non-`standard` policies use `1 − policy.reviewShare` as `newShare` (pack `newShare` ignored).
+Examples may set `answerType` (default `rational` for Quant). Same grading helpers as practice.
 
-## Mix rule (runtime)
+## `.matha` package layout
 
-1. Resolve **review pool**: `drill.reviewTopicTags` if non-empty; else union of `newTopicTags` from packs listed in `links.prerequisites` (fallback `links.before`).
-2. Resolve **newShare** from the active policy (see above).
-3. `newCount = round(n × newShare)`, `reviewCount = n − newCount` (0 if pool empty).
-4. Fill slots from `newTopicTags` / review pool; Fisher–Yates interleave.
+```
+example.matha                          # ZIP
+├── manifest.json                      # packageId, revision, formatVersion, scope, attribution?
+├── tree.json                          # collections + ordered children (omit for bare unit)
+├── units/
+│   └── <unitId>/
+│       ├── unit.json
+│       └── assets/
+└── assets/
+```
 
-## Authoring a new pack
+Import flow: **File → Preview → Place → Atomic install** (`content/matha/*`, UI `app/quant/learn/import.tsx`).
 
-1. Copy an existing `uN-*.ts`; set unique `meta.id`, `meta.order`, and `meta.links`.
-2. Append `{ kind: 'pack', id }` to a collection’s `children` in `collections.ts` (or add a nested collection).
-3. Write MathA-authored lesson copy (`intro` / `definitions` / `examples`).
-4. Add `cards[]` for the unit Review deck (stable `id`s within the pack).
-5. Set `drill.newTopicTags` and either explicit `reviewTopicTags` or rely on prerequisites.
-6. Set `drill.newShare` for the standard/current mix.
-7. Export from `content/packs/index.ts`.
+### Reimport rules
+
+| Situation | Behavior |
+|-----------|----------|
+| Same revision + same content | No-op |
+| Bumped revision | Replace content; preserve progress for unchanged ids |
+| New id | Old id treated as deleted |
+| Deleted from package | `active: false`; history kept |
+| Placement | Preserved on update |
+| Id collision (other package) | Block install |
+
+## Collections
+
+Unchanged from v3/v4: `children[]` order is authoritative; packs do not store a parent id.
+
+## Spaced-repetition (generated slots)
+
+Named policies still apply to **generated** practice slots for shipped curriculum (`generatorNewShare` / links). Runtime policy: `RUNTIME_SPACED_REP_POLICY = 'standard'`.
+
+## Authoring
+
+### TS shipped pack
+
+1. Add `uN-*.ts` (may still use legacy `cards` / `drill` — normalized to `review` / `practice`).
+2. Register in `registry.ts`; place in `collections.ts`.
+3. Seed runs on next fresh store (or bump store / clear AsyncStorage in dev).
+
+### `.matha` package
+
+1. Author JSON under `content/matha/examples/<name>/` (see probability, biology, vocabulary).
+2. `npm run build:matha` → `content/matha/fixtures/*.matha`.
+3. Import in-app via **Learn → Import .matha**, or run `npm run test:matha`.
 
 ## Runtime paths
 
 | Concern | Location |
 |---------|----------|
-| Types + policies | `content/packs/types.ts` |
-| Collections registry | `content/packs/collections.ts` |
-| Registry + review / card resolve | `content/packs/index.ts` |
-| Drill mix helper | `lib/learnDrill.ts` |
-| Collection / lesson / cards / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |
+| Types | `content/packs/types.ts` |
+| Normalize / expand | `content/packs/normalize.ts` |
+| TS registry | `content/packs/registry.ts`, `collections.ts` |
+| Content store | `content/store/*` |
+| `.matha` parse / validate / install | `content/matha/*` |
+| Practice mix | `lib/learnDrill.ts` |
+| Grading | `content/matha/grade.ts`, `lib/fraction.ts` |
+| Learn UI | `app/quant/learn/*` |

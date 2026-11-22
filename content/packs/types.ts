@@ -5,15 +5,15 @@ import type { QuantSkillId } from '@/lib/quantTypes';
  * v2: pack graph links + named spaced-repetition policies.
  * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
  * v4: unit-scoped **flash cards** (`id` / `front` / `back`) for Review.
- *     Lesson stays normal (`intro` / `definitions` / `examples`); cards are a
- *     separate list on the pack — not section-linked, not a lesson deck.
+ * v5: optional lesson / practice / review; authored answer types; review
+ *     kinds (basic / reversible / cloze); content-store + `.matha` import.
  */
-export const CONTENT_PACK_SCHEMA_VERSION = 4 as const;
+export const CONTENT_PACK_SCHEMA_VERSION = 5 as const;
 
 /** Maps to Quant Practice generators (`lib/generators/quant`). */
 export type GeneratorId = QuantSkillId;
 
-/** Pack id slug, e.g. `u1-dice`. */
+/** Pack / unit id slug, e.g. `u1-dice` or namespaced `pkg.prob.u1-dice`. */
 export type PackId = string;
 
 /** Collection id slug, e.g. `c-foundations`. */
@@ -42,7 +42,7 @@ export type LearnCollection = {
 
 /**
  * Named mix policies. Runtime today always uses `standard` (pack-authored
- * `drill.newShare` ≈ current ~25–30% prior when a review pool exists).
+ * `drill.newShare` / practice `generatorNewShare` ≈ current ~25–30% prior).
  * Other ids are schema-ready for a future learner picker.
  */
 export type SpacedRepPolicyId = 'none' | 'light' | 'standard' | 'heavy';
@@ -64,7 +64,7 @@ export const SPACED_REP_POLICIES: Record<SpacedRepPolicyId, SpacedRepPolicy> = {
     id: 'none',
     label: 'None',
     reviewShare: 0,
-    blurb: '100% new topic — no prior-topic review',
+    blurb: '100% new — no prior-topic review',
   },
   light: {
     id: 'light',
@@ -102,8 +102,7 @@ export type PackLinks = {
   after: PackId[];
   /**
    * Pack ids required before unlock (future sequential mode).
-   * Also the default source set for deriving `reviewTopicTags` when omitted.
-   * Often equals `before` (or a transitive closure of priors).
+   * Also the default source set for deriving review generators when omitted.
    */
   prerequisites: PackId[];
 };
@@ -113,9 +112,30 @@ export type PackDefinition = {
   body: string;
 };
 
+export type Attribution = {
+  author?: string;
+  license?: string;
+  sourceUrl?: string;
+  notes?: string;
+};
+
+/** Graded answer kinds for authored practice / lesson examples (v1). */
+export type AnswerType =
+  | 'rational'
+  | 'integer'
+  | 'text'
+  | 'choice'
+  | 'multiChoice'
+  | 'manual';
+
+export type ChoiceOption = {
+  id: string;
+  label: string;
+};
+
 /**
- * Flash card for this unit’s Review deck. Unit-scoped only — not tied to a
- * lesson section, and not rendered as the lesson itself.
+ * Flash card for this unit’s Review deck (v4 basic shape).
+ * Prefer `review.sources` in v5; `cards[]` is still accepted and normalized.
  */
 export type PackCard = {
   /** Stable id within the pack. */
@@ -124,19 +144,58 @@ export type PackCard = {
   front: string;
   /** Definition, formula, or short explanation. */
   back: string;
+  tags?: string[];
+};
+
+export type ReviewCardRef = {
+  /** Stable card id — progress keys off this. */
+  id: string;
+  /** For reversible sources. */
+  direction?: 'forward' | 'reverse';
+  /** For cloze sources (1-based index into cloze deletions). */
+  clozeIndex?: number;
+};
+
+export type ReviewSourceKind = 'basic' | 'reversible' | 'cloze';
+
+/**
+ * Author source note that expands to one or more study cards.
+ * Progress is per expanded card id, not the source alone.
+ */
+export type ReviewSource = {
+  id: string;
+  kind: ReviewSourceKind;
+  /** Front text (basic / reversible). */
+  front?: string;
+  /** Back text (basic / reversible). */
+  back?: string;
+  /** Cloze source text with `{{cN::answer}}` or `{{cN::answer::hint}}` markers. */
+  text?: string;
+  cards: ReviewCardRef[];
+  tags?: string[];
+};
+
+export type PackReview = {
+  sources: ReviewSource[];
 };
 
 /**
  * Try-first worked example. Lesson UI shows title + prompt only; the learner
  * attempts with the Quant pad (Scratch / Hint / Submit / Show solution).
- * `steps` + `answer` are revealed after submit or Show solution — never dumped
- * on the lesson screen before an attempt.
+ * `steps` + graded answer are revealed after submit or Show solution.
  */
 export type PackExample = {
+  id?: string;
   title: string;
   prompt: string;
-  /** Canonical answer string (integer or reduced `n/d`) for grading via `answersMatch`. */
-  answer: string;
+  answerType?: AnswerType;
+  /**
+   * Canonical answer for auto-grade types.
+   * `choice` → option id; `multiChoice` → option id array; others → string.
+   */
+  answer?: string | string[];
+  aliases?: string[];
+  choices?: ChoiceOption[];
   /** Worked solution lines shown only after reveal. */
   steps: string[];
   /** Optional hint shown from the example attempt UI (same as Practice). */
@@ -145,32 +204,61 @@ export type PackExample = {
 
 export type PackLesson = {
   /** 1–2 sentences: what this unit unlocks / why it matters. */
-  intro: string;
-  definitions: PackDefinition[];
-  examples: PackExample[];
+  intro?: string;
+  definitions?: PackDefinition[];
+  examples?: PackExample[];
 };
 
+export type AuthoredQuestion = {
+  id: string;
+  prompt: string;
+  answerType: AnswerType;
+  /** Canonical answer — see PackExample.answer. */
+  answer?: string | string[];
+  aliases?: string[];
+  choices?: ChoiceOption[];
+  tags?: string[];
+  hint?: string;
+  steps?: string[];
+};
+
+/**
+ * Practice activity: authored questions + built-in generator refs + session mix.
+ * Package payloads never embed generator code.
+ */
+export type PackPractice = {
+  /** Session length (question count). */
+  sessionSize: number;
+  /**
+   * Authored vs generated shares (0–1). Should sum to ~1.
+   * Counts are derived: authoredCount = round(n × authored), rest generated.
+   */
+  mix: { authored: number; generated: number };
+  /** Built-in generator ids only (`dice` | `urns` | `ev`). */
+  generators?: GeneratorId[];
+  questions?: AuthoredQuestion[];
+  /**
+   * Store/runtime only (not in `.matha`): new-topic share among *generated*
+   * slots for shipped curriculum spaced review. Defaults to 1.
+   */
+  generatorNewShare?: number;
+  /** Store/runtime only: explicit review generator pool. */
+  reviewGenerators?: GeneratorId[];
+};
+
+/**
+ * @deprecated v4 drill shape — normalized to `practice` on load.
+ * Kept so existing TS pack modules compile until rewritten.
+ */
 export type PackDrill = {
-  /** Fixed questions in the practice block. */
   n: number;
-  /**
-   * Pack-authored new-topic share (0–1) for the **standard / current** mix.
-   * Used when the active policy is `standard`. Other policies ignore this and
-   * use `SPACED_REP_POLICIES[id].reviewShare` instead.
-   */
   newShare: number;
-  /** Generator ids for this unit’s new topic. */
   newTopicTags: GeneratorId[];
-  /**
-   * Generator ids for spaced review. If omitted or empty, runtime derives the
-   * pool from `links.prerequisites` (fallback: `links.before`) by unioning
-   * those packs’ `newTopicTags`.
-   */
   reviewTopicTags?: GeneratorId[];
 };
 
 export type PackMeta = {
-  /** Stable slug used in routes, e.g. `u1-dice`. */
+  /** Stable slug used in routes / store, e.g. `u1-dice`. */
   id: PackId;
   /** Content revision (independent of schemaVersion). */
   version: number;
@@ -182,19 +270,36 @@ export type PackMeta = {
    */
   order: number;
   blurb: string;
+  tags?: string[];
+  attribution?: Attribution;
+  /** Owning package id when installed via `.matha` or shipped seed. */
+  packageId?: string;
   /** Curriculum edges + prerequisites for order / SR pools / future unlock. */
   links: PackLinks;
 };
 
 /**
- * One Learn unit: normal lesson copy + optional Review card list + drill mix.
- * Authors add packs as TS modules matching this shape — no new screens required.
+ * One Learn unit. Activities are independently optional; at least one of
+ * lesson / practice / review is required (empty units fail validation).
+ *
  * Placement in the Learn tree is via `LearnCollection.children`.
+ * Legacy `cards` / `drill` are accepted on TS packs and normalized to
+ * `review` / `practice`.
  */
 export type ContentPack = {
   meta: PackMeta;
-  lesson: PackLesson;
-  /** Unit Review deck (flip study). Empty or omit when the unit has no cards. */
-  cards: PackCard[];
-  drill: PackDrill;
+  lesson?: PackLesson;
+  practice?: PackPractice;
+  review?: PackReview;
+  /** @deprecated Prefer `review.sources`. Normalized on load. */
+  cards?: PackCard[];
+  /** @deprecated Prefer `practice`. Normalized on load. */
+  drill?: PackDrill;
 };
+
+/** Built-in generator ids known to the app. */
+export const KNOWN_GENERATOR_IDS: readonly GeneratorId[] = ['dice', 'urns', 'ev'] as const;
+
+export function isKnownGeneratorId(id: string): id is GeneratorId {
+  return (KNOWN_GENERATOR_IDS as readonly string[]).includes(id);
+}
