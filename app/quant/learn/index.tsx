@@ -2,46 +2,55 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LEARN_PACKS } from '@/content/packs';
-import { formatMixLabel } from '@/lib/learnDrill';
+import { countLeafPacks, rootCollections } from '@/content/packs';
 import { colors } from '@/lib/theme';
 
-export default function QuantLearnListScreen() {
+export default function QuantLearnHomeScreen() {
+  const roots = rootCollections();
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
           <Text style={styles.title}>Learn</Text>
           <Text style={styles.subtitle}>
-            Lesson first, then a mixed drill. All units are open in v1 — finish in any order.
+            Browse collections, then open a unit. Lesson first, then a mixed drill. All units are
+            open in v1 — finish in any order.
           </Text>
         </View>
 
         <View style={styles.list}>
-          {LEARN_PACKS.map((pack) => (
-            <Pressable
-              key={pack.meta.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${pack.meta.title}`}
-              onPress={() =>
-                router.push({
-                  pathname: '/quant/learn/[packId]',
-                  params: { packId: pack.meta.id },
-                })
-              }
-              style={({ pressed }) => [styles.unitRow, pressed && styles.pressed]}
-            >
-              <View style={styles.orderBadge}>
-                <Text style={styles.orderText}>{pack.meta.order}</Text>
-              </View>
-              <View style={styles.unitText}>
-                <Text style={styles.unitLabel}>{pack.meta.title}</Text>
-                <Text style={styles.unitBlurb}>{pack.meta.blurb}</Text>
-                <Text style={styles.unitMeta}>{formatMixLabel(pack)}</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ))}
+          {roots.map((collection, index) => {
+            const leafCount = countLeafPacks(collection);
+            return (
+              <Pressable
+                key={collection.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open collection ${collection.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/quant/learn/collection/[collectionId]',
+                    params: { collectionId: collection.id },
+                  })
+                }
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              >
+                <View style={styles.orderBadge}>
+                  <Text style={styles.orderText}>{index + 1}</Text>
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowLabel}>{collection.title}</Text>
+                  {collection.blurb ? (
+                    <Text style={styles.rowBlurb}>{collection.blurb}</Text>
+                  ) : null}
+                  <Text style={styles.rowMeta}>
+                    {leafCount} {leafCount === 1 ? 'unit' : 'units'}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -78,7 +87,7 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
   },
-  unitRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -102,21 +111,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  unitText: {
+  rowText: {
     flex: 1,
     gap: 4,
   },
-  unitLabel: {
+  rowLabel: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
   },
-  unitBlurb: {
+  rowBlurb: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
   },
-  unitMeta: {
+  rowMeta: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,

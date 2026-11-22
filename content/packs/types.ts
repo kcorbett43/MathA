@@ -3,14 +3,37 @@ import type { QuantSkillId } from '@/lib/quantTypes';
 /**
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
+ * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
  */
-export const CONTENT_PACK_SCHEMA_VERSION = 2 as const;
+export const CONTENT_PACK_SCHEMA_VERSION = 3 as const;
 
 /** Maps to Quant Practice generators (`lib/generators/quant`). */
 export type GeneratorId = QuantSkillId;
 
 /** Pack id slug, e.g. `u1-dice`. */
 export type PackId = string;
+
+/** Collection id slug, e.g. `c-foundations`. */
+export type CollectionId = string;
+
+/**
+ * Child of a Learn collection: another collection (nest deeper) or a leaf unit pack.
+ * Depth is unlimited in schema; UI uses breadcrumbs.
+ */
+export type CollectionChild =
+  | { kind: 'collection'; id: CollectionId }
+  | { kind: 'pack'; id: PackId };
+
+/**
+ * Nested Learn folder. Not a fixed book/chapter level — any collection may
+ * contain collections and/or packs.
+ */
+export type LearnCollection = {
+  id: CollectionId;
+  title: string;
+  blurb?: string;
+  children: CollectionChild[];
+};
 
 // ——— Spaced-repetition policies (learner-selectable later) ———
 
@@ -137,7 +160,10 @@ export type PackMeta = {
   version: number;
   schemaVersion: typeof CONTENT_PACK_SCHEMA_VERSION;
   title: string;
-  /** Display order (1-based). May later be inferred from `links`. */
+  /**
+   * Display order hint (1-based). Authoritative placement is the parent
+   * collection’s `children` array.
+   */
   order: number;
   blurb: string;
   /** Curriculum edges + prerequisites for order / SR pools / future unlock. */
@@ -147,6 +173,7 @@ export type PackMeta = {
 /**
  * One Learn unit: lesson copy + drill mix config + graph links.
  * Authors add packs as TS modules matching this shape — no new screens required.
+ * Placement in the Learn tree is via `LearnCollection.children`.
  */
 export type ContentPack = {
   meta: PackMeta;
