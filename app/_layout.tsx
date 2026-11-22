@@ -34,12 +34,12 @@ export default function RootLayout() {
           options={{ title: 'Learn', headerBackTitle: 'Quant' }}
         />
         <Stack.Screen
-          name="quant/learn/module/[moduleId]"
-          options={{ title: 'Units', headerBackTitle: 'Learn' }}
+          name="quant/learn/collection/[collectionId]"
+          options={{ title: 'Collection', headerBackTitle: 'Learn' }}
         />
         <Stack.Screen
           name="quant/learn/[packId]"
-          options={{ title: 'Lesson', headerBackTitle: 'Units' }}
+          options={{ title: 'Lesson', headerBackTitle: 'Back' }}
         />
         <Stack.Screen name="quant/session" options={{ title: 'Quant', headerBackTitle: 'Back' }} />
         <Stack.Screen
