@@ -1,21 +1,50 @@
-# Quant Learn content-pack schema (v2)
+# Quant Learn content-pack schema (v3)
 
-Versioned, data-driven packs drive **Learn** units. Authors add a pack module under `content/packs/`, register it in `index.ts`, and the existing Learn screens + Quant session shell pick it up — **no new routes per unit**.
+Versioned, data-driven packs drive **Learn** units. Authors add a pack module under `content/packs/`, register it in `index.ts` (and its parent in `modules.ts`), and the existing Learn screens + Quant session shell pick it up — **no new routes per unit**.
 
-Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **2**). Bump when the pack shape breaks.
+Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently **3**). Bump when the pack shape breaks.
 
-**v2 adds:** curriculum **links** (`before` / `after` / `prerequisites`) and named **spaced-repetition policies** (`none` | `light` | `standard` | `heavy`). Runtime still applies the **standard / current** mix only (`RUNTIME_SPACED_REP_POLICY`).
+**v2 added:** curriculum **links** (`before` / `after` / `prerequisites`) and named **spaced-repetition policies** (`none` | `light` | `standard` | `heavy`). Runtime still applies the **standard / current** mix only (`RUNTIME_SPACED_REP_POLICY`).
+
+**v3 adds:** **modules** registry + required `meta.moduleId`. Navigation is **Learn → Modules → Units** (not a flat unit list).
+
+## Hierarchy
+
+```
+Learn
+ └── Module (e.g. m1-foundations)
+      ├── Unit / pack (u1-dice)
+      ├── Unit / pack (u2-urns)
+      └── Unit / pack (u3-ev)
+```
+
+| Concern | Location |
+|---------|----------|
+| Module registry | `content/packs/modules.ts` → `LEARN_MODULES` |
+| Module helpers | `moduleById`, `packsForModule` in `index.ts` |
+| Module list UI | `app/quant/learn/index.tsx` |
+| Unit list UI | `app/quant/learn/module/[moduleId].tsx` |
+| Lesson UI | `app/quant/learn/[packId].tsx` |
 
 ## Pack shape
 
 ```ts
+type LearnModule = {
+  id: string;           // e.g. "m1-foundations"
+  title: string;
+  blurb: string;
+  order: number;        // among modules, 1-based
+  unitIds: string[];    // pack ids in curriculum order
+};
+
 type ContentPack = {
   meta: {
     id: string;                 // stable slug, e.g. "u1-dice"
     version: number;            // content revision (independent of schema)
-    schemaVersion: 2;
+    schemaVersion: 3;
+    moduleId: string;           // parent Learn module
     title: string;
-    order: number;              // display order (1-based)
+    order: number;              // display order within the module (1-based)
     blurb: string;
     links: {
       before: string[];         // pack ids immediately before this unit
@@ -58,6 +87,12 @@ Worked examples are **not** solution dumps on the lesson screen.
 
 Authors **must** supply `answer` + `steps` on every example so grading and reveal work.
 
+## Modules (v1)
+
+| Module | id | Units |
+|--------|-----|-------|
+| Probability foundations | `m1-foundations` | `u1-dice`, `u2-urns`, `u3-ev` |
+
 ## Unit links (graph)
 
 | Field | Meaning |
@@ -68,7 +103,7 @@ Authors **must** supply `answer` + `steps` on every example so grading and revea
 
 Imported / third-party packs should set these so MathA can order units and build spaced-repetition pools without hard-coding `meta.order`.
 
-v1 shipped packs (path):
+v1 shipped packs (path within `m1-foundations`):
 
 ```
 u1-dice  →  u2-urns  →  u3-ev
@@ -105,17 +140,19 @@ Named policies in `SPACED_REP_POLICIES` (`types.ts`):
 
 ## Authoring a new pack
 
-1. Copy an existing `uN-*.ts`; set unique `meta.id`, `meta.order`, and `meta.links` (`before` / `after` / `prerequisites`).
-2. Write MathA-authored lesson copy.
-3. Set `drill.newTopicTags` and either explicit `reviewTopicTags` or rely on prerequisites.
-4. Set `drill.newShare` for the standard/current mix.
-5. Export from `content/packs/index.ts`.
+1. Copy an existing `uN-*.ts`; set unique `meta.id`, `meta.moduleId`, `meta.order`, and `meta.links`.
+2. Append the pack id to the parent module’s `unitIds` in `modules.ts` (or add a new module).
+3. Write MathA-authored lesson copy.
+4. Set `drill.newTopicTags` and either explicit `reviewTopicTags` or rely on prerequisites.
+5. Set `drill.newShare` for the standard/current mix.
+6. Export from `content/packs/index.ts`.
 
 ## Runtime paths
 
 | Concern | Location |
 |---------|----------|
 | Types + policies | `content/packs/types.ts` |
+| Modules registry | `content/packs/modules.ts` |
 | Registry + review resolve | `content/packs/index.ts` |
 | Drill mix helper | `lib/learnDrill.ts` |
-| Unit list / lesson / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |
+| Module / unit / lesson / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |

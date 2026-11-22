@@ -1,6 +1,8 @@
 import type {
   ContentPack,
   GeneratorId,
+  LearnModule,
+  ModuleId,
   PackId,
   SpacedRepPolicyId,
 } from './types';
@@ -9,6 +11,7 @@ import {
   SPACED_REP_POLICIES,
 } from './types';
 
+import { LEARN_MODULES } from './modules';
 import { packU1Dice } from './u1-dice';
 import { packU2Urns } from './u2-urns';
 import { packU3Ev } from './u3-ev';
@@ -19,6 +22,8 @@ export {
   SPACED_REP_POLICIES,
   type ContentPack,
   type GeneratorId,
+  type LearnModule,
+  type ModuleId,
   type PackDefinition,
   type PackDrill,
   type PackExample,
@@ -30,18 +35,40 @@ export {
   type SpacedRepPolicyId,
 } from './types';
 
-/** All Learn packs, sorted by `meta.order`. Add new units here. */
-export const LEARN_PACKS: ContentPack[] = [packU1Dice, packU2Urns, packU3Ev].sort(
-  (a, b) => a.meta.order - b.meta.order,
-);
+export { LEARN_MODULES } from './modules';
+
+/** All Learn packs, sorted by module order then unit order. Add new units here. */
+export const LEARN_PACKS: ContentPack[] = [packU1Dice, packU2Urns, packU3Ev];
 
 const packMap = new Map<PackId, ContentPack>(
   LEARN_PACKS.map((p) => [p.meta.id, p]),
 );
 
+const moduleMap = new Map<ModuleId, LearnModule>(
+  LEARN_MODULES.map((m) => [m.id, m]),
+);
+
 export function packById(id: string | undefined): ContentPack | undefined {
   if (!id) return undefined;
   return packMap.get(id);
+}
+
+export function moduleById(id: string | undefined): LearnModule | undefined {
+  if (!id) return undefined;
+  return moduleMap.get(id);
+}
+
+/** Units in a module, in `unitIds` order (falls back to pack.meta.order). */
+export function packsForModule(moduleId: ModuleId | string | undefined): ContentPack[] {
+  const mod = moduleById(moduleId);
+  if (!mod) return [];
+  const packs = mod.unitIds
+    .map((id) => packMap.get(id))
+    .filter((p): p is ContentPack => Boolean(p));
+  if (packs.length > 0) return packs;
+  return LEARN_PACKS.filter((p) => p.meta.moduleId === moduleId).sort(
+    (a, b) => a.meta.order - b.meta.order,
+  );
 }
 
 /**

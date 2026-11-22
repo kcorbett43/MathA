@@ -26,7 +26,7 @@ export default function QuantHomeScreen() {
             <View style={styles.rowText}>
               <Text style={styles.rowLabel}>Learn</Text>
               <Text style={styles.rowBlurb}>
-                Units with light defs, worked examples, then mixed practice
+                Modules → units: light defs, worked examples, then mixed practice
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>
