@@ -25,7 +25,19 @@ export default function RootLayout() {
         <Stack.Screen name="results" options={{ title: 'Results', headerBackVisible: false }} />
         <Stack.Screen name="dashboard" options={{ title: 'Dashboard', headerBackTitle: 'Home' }} />
         <Stack.Screen name="quant/index" options={{ title: 'Quant', headerBackTitle: 'Home' }} />
-        <Stack.Screen name="quant/session" options={{ title: 'Quant', headerBackTitle: 'Skills' }} />
+        <Stack.Screen
+          name="quant/practice"
+          options={{ title: 'Practice', headerBackTitle: 'Quant' }}
+        />
+        <Stack.Screen
+          name="quant/learn/index"
+          options={{ title: 'Learn', headerBackTitle: 'Quant' }}
+        />
+        <Stack.Screen
+          name="quant/learn/[packId]"
+          options={{ title: 'Lesson', headerBackTitle: 'Learn' }}
+        />
+        <Stack.Screen name="quant/session" options={{ title: 'Quant', headerBackTitle: 'Back' }} />
         <Stack.Screen
           name="quant/review"
           options={{ title: 'Review', headerBackVisible: false }}

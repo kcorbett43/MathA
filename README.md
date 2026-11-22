@@ -18,6 +18,10 @@ Score = **raw correct count**. As soon as the typed answer matches, score increm
 
 Separate Home entry — not mixed with timed drills or mental-math Practice.
 
+**Learn** — data-driven content packs (`content/packs/`): lesson (intro, defs, worked examples) → mixed drill with spaced review. v1 units: Counting & dice (10 @ 100%), Urns & conditional (12 @ ~75/25), Expected value (12 @ ~70/30). All units open. Schema: `content/packs/SCHEMA.md`.
+
+**Practice** — pure skill reps (100% that generator):
+
 | Skill | What you practice | Fixed N |
 |-------|-------------------|--------:|
 | **Dice & counting** | Two fair dice; P(sum = k) | 12 |
@@ -67,7 +71,7 @@ npx expo start --web
 - **Drill** — timed session with a mode-appropriate integer keypad (includes −); auto-advances on correct answer; **Reset** restarts without saving; **Home** abandons without saving
 - **Results** — shows raw correct count; session is saved locally
 - **Dashboard** — mode picker + All / Year / Month / Week / Day filters (default **Month**); every score plotted spaced by calendar day
-- **Quant** — skill list → fixed-N session (fraction keypad + Submit) → review (session-local only)
+- **Quant** — Learn (units → lesson → mixed drill) or Practice (skills) → fixed-N session (fraction keypad + Submit) → review (session-local only)
 
 ## Local data
 
