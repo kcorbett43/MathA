@@ -7,10 +7,26 @@ type NumberPadProps = {
   onDigit: (digit: string) => void;
   onBackspace: () => void;
   onMinus?: () => void;
+  onSlash?: () => void;
   allowNegative?: boolean;
+  /** Show `/` on the bottom-left (for fraction answers). Mutually preferred over minus when both set. */
+  allowFraction?: boolean;
 };
 
-type KeyId = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'minus' | 'backspace';
+type KeyId =
+  | '0'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | '9'
+  | 'minus'
+  | 'slash'
+  | 'backspace';
 
 const DIGIT_ROWS: KeyId[][] = [
   ['1', '2', '3'],
@@ -18,20 +34,25 @@ const DIGIT_ROWS: KeyId[][] = [
   ['7', '8', '9'],
 ];
 
-const BOTTOM_ROW = (allowNegative: boolean): (KeyId | null)[] => [
-  allowNegative ? 'minus' : null,
+const BOTTOM_ROW = (opts: {
+  allowNegative: boolean;
+  allowFraction: boolean;
+}): (KeyId | null)[] => [
+  opts.allowFraction ? 'slash' : opts.allowNegative ? 'minus' : null,
   '0',
   'backspace',
 ];
 
 function labelFor(id: KeyId): string {
   if (id === 'minus') return '−';
+  if (id === 'slash') return '/';
   if (id === 'backspace') return '⌫';
   return id;
 }
 
 function a11yFor(id: KeyId): string {
   if (id === 'minus') return 'Negative sign';
+  if (id === 'slash') return 'Fraction slash';
   if (id === 'backspace') return 'Backspace';
   return `Digit ${id}`;
 }
@@ -48,23 +69,38 @@ function NumberPadComponent({
   onDigit,
   onBackspace,
   onMinus,
+  onSlash,
   allowNegative = true,
+  allowFraction = false,
 }: NumberPadProps) {
-  const handlersRef = useRef({ onDigit, onBackspace, onMinus });
-  handlersRef.current = { onDigit, onBackspace, onMinus };
+  const handlersRef = useRef({ onDigit, onBackspace, onMinus, onSlash });
+  handlersRef.current = { onDigit, onBackspace, onMinus, onSlash };
 
   const activate = useCallback((key: KeyId) => {
     const h = handlersRef.current;
     if (key === 'backspace') h.onBackspace();
     else if (key === 'minus') h.onMinus?.();
+    else if (key === 'slash') h.onSlash?.();
     else h.onDigit(key);
   }, []);
 
   if (Platform.OS === 'web') {
-    return <WebPad allowNegative={allowNegative} onActivate={activate} />;
+    return (
+      <WebPad
+        allowNegative={allowNegative}
+        allowFraction={allowFraction}
+        onActivate={activate}
+      />
+    );
   }
 
-  return <NativePad allowNegative={allowNegative} onActivate={activate} />;
+  return (
+    <NativePad
+      allowNegative={allowNegative}
+      allowFraction={allowFraction}
+      onActivate={activate}
+    />
+  );
 }
 
 export const NumberPad = memo(NumberPadComponent);
@@ -73,9 +109,11 @@ export const NumberPad = memo(NumberPadComponent);
 
 function NativePad({
   allowNegative,
+  allowFraction,
   onActivate,
 }: {
   allowNegative: boolean;
+  allowFraction: boolean;
   onActivate: (key: KeyId) => void;
 }) {
   return (
@@ -88,7 +126,7 @@ function NativePad({
         </View>
       ))}
       <View style={styles.row}>
-        {BOTTOM_ROW(allowNegative).map((key, i) =>
+        {BOTTOM_ROW({ allowNegative, allowFraction }).map((key, i) =>
           key ? (
             <NativeKey key={key} id={key} onActivate={onActivate} />
           ) : (
@@ -149,9 +187,11 @@ function NativeKey({
 
 function WebPad({
   allowNegative,
+  allowFraction,
   onActivate,
 }: {
   allowNegative: boolean;
+  allowFraction: boolean;
   onActivate: (key: KeyId) => void;
 }) {
   const padRef = useRef<HTMLDivElement | null>(null);
@@ -229,7 +269,7 @@ function WebPad({
         </div>
       ))}
       <div style={webRowStyle}>
-        {BOTTOM_ROW(allowNegative).map((key, i) =>
+        {BOTTOM_ROW({ allowNegative, allowFraction }).map((key, i) =>
           key ? <WebKey key={key} id={key} /> : <div key={`spacer-${i}`} style={webSpacerStyle} />,
         )}
       </div>

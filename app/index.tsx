@@ -62,6 +62,16 @@ export default function HomeScreen() {
             <Text style={styles.ctaText}>Start drill</Text>
           </Pressable>
 
+          <Link href="/quant" asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open Quant probability practice"
+              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+            >
+              <Text style={styles.secondaryText}>Quant</Text>
+            </Pressable>
+          </Link>
+
           <Link href="/dashboard" asChild>
             <Pressable
               accessibilityRole="button"
