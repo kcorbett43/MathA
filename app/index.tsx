@@ -10,7 +10,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <Text style={styles.brand}>MathA</Text>
-          <Text style={styles.tagline}>Mental math and structured learning.</Text>
+          <Text style={styles.tagline}>Timed drills and a library for whatever you study.</Text>
         </View>
 
         <View style={styles.list}>
@@ -23,7 +23,7 @@ export default function HomeScreen() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>Drill</Text>
                 <Text style={styles.rowBlurb}>
-                  Timed mental math — pick a mode and duration, track scores on the dashboard
+                  Timed sessions — mode, duration, and a score dashboard (mental math for now)
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>
@@ -39,7 +39,7 @@ export default function HomeScreen() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>Learn</Text>
                 <Text style={styles.rowBlurb}>
-                  Nested collections and unit packs, plus skill practice
+                  Your content library — collections for classes, interviews, plays, and more
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>

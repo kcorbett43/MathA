@@ -14,8 +14,8 @@ export default function QuantLearnHomeScreen() {
         <View style={styles.intro}>
           <Text style={styles.title}>Collections</Text>
           <Text style={styles.subtitle}>
-            Open a collection, then a unit. Lesson first, then a mixed drill. All units are open in
-            v1 — finish in any order.
+            Browse the library, open a collection, then a unit. All units are open in v1 — finish in
+            any order.
           </Text>
         </View>
 

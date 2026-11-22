@@ -11,8 +11,8 @@ export default function LearnHubScreen() {
         <View style={styles.intro}>
           <Text style={styles.title}>Learn</Text>
           <Text style={styles.subtitle}>
-            Browse nested collections and unit packs, or run pure skill practice. No timer, no
-            dashboard Elo.
+            A library of content collections — any topic you want to study. Browse folders, open
+            units, or jump into skill practice. No timer, no dashboard Elo.
           </Text>
         </View>
 
@@ -26,7 +26,7 @@ export default function LearnHubScreen() {
             <View style={styles.rowText}>
               <Text style={styles.rowLabel}>Collections</Text>
               <Text style={styles.rowBlurb}>
-                Nested folders → units: light defs, worked examples, then mixed practice
+                Nested folders of units — lessons, examples, then mixed practice
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>
