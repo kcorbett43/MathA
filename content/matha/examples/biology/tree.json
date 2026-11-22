@@ -1,0 +1,11 @@
+{
+  "roots": ["pkg.bio.c-root"],
+  "collections": [
+    {
+      "id": "pkg.bio.c-root",
+      "title": "Biology (imported)",
+      "blurb": "Authored practice with text, choice, and manual items",
+      "children": [{ "kind": "unit", "id": "pkg.bio.u1-cell" }]
+    }
+  ]
+}

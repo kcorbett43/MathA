@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "id": "pkg.vocab.u1-gre",
+    "version": 1,
+    "title": "GRE starters",
+    "order": 1,
+    "blurb": "High-frequency words — review only",
+    "tags": ["vocabulary"]
+  },
+  "review": {
+    "sources": [
+      {
+        "id": "pkg.vocab.src-abate",
+        "kind": "basic",
+        "front": "abate",
+        "back": "to become less intense; subside",
+        "cards": [{ "id": "pkg.vocab.c-abate" }],
+        "tags": ["verb"]
+      },
+      {
+        "id": "pkg.vocab.src-laconic",
+        "kind": "reversible",
+        "front": "laconic",
+        "back": "using few words; concise to the point of seeming rude",
+        "cards": [
+          { "id": "pkg.vocab.c-laconic-fwd", "direction": "forward" },
+          { "id": "pkg.vocab.c-laconic-rev", "direction": "reverse" }
+        ]
+      },
+      {
+        "id": "pkg.vocab.src-ephemeral",
+        "kind": "cloze",
+        "text": "Something {{c1::ephemeral}} lasts only a short time.",
+        "cards": [{ "id": "pkg.vocab.c-ephemeral-1", "clozeIndex": 1 }]
+      }
+    ]
+  }
+}

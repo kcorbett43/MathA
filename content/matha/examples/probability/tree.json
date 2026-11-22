@@ -1,0 +1,11 @@
+{
+  "roots": ["pkg.prob.c-root"],
+  "collections": [
+    {
+      "id": "pkg.prob.c-root",
+      "title": "Probability (imported)",
+      "blurb": "Lesson + practice + review for classical probability",
+      "children": [{ "kind": "unit", "id": "pkg.prob.u1-dice" }]
+    }
+  ]
+}

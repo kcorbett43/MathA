@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "id": "pkg.bio.u1-cell",
+    "version": 1,
+    "title": "Cell structure",
+    "order": 1,
+    "blurb": "Organelles and membrane basics",
+    "tags": ["biology", "cells"]
+  },
+  "lesson": {
+    "intro": "Cells are the basic unit of life. Know the major organelles and what they do.",
+    "definitions": [
+      {
+        "term": "Mitochondrion",
+        "body": "Organelle that generates ATP via cellular respiration."
+      },
+      {
+        "term": "Nucleus",
+        "body": "Contains most of the cell's DNA and controls gene expression."
+      }
+    ],
+    "examples": [
+      {
+        "id": "pkg.bio.ex-powerhouse",
+        "title": "Powerhouse",
+        "prompt": "Which organelle is often called the powerhouse of the cell?",
+        "answerType": "text",
+        "answer": "mitochondrion",
+        "aliases": ["mitochondria", "the mitochondrion"],
+        "steps": ["Mitochondria produce ATP."]
+      }
+    ]
+  },
+  "practice": {
+    "sessionSize": 5,
+    "mix": { "authored": 1, "generated": 0 },
+    "questions": [
+      {
+        "id": "pkg.bio.q-mito",
+        "prompt": "Name the organelle that produces most of the cell's ATP.",
+        "answerType": "text",
+        "answer": "mitochondrion",
+        "aliases": ["mitochondria"]
+      },
+      {
+        "id": "pkg.bio.q-choice",
+        "prompt": "Where is most DNA stored in a eukaryotic cell?",
+        "answerType": "choice",
+        "choices": [
+          { "id": "a", "label": "Golgi apparatus" },
+          { "id": "b", "label": "Nucleus" },
+          { "id": "c", "label": "Ribosome" }
+        ],
+        "answer": "b"
+      },
+      {
+        "id": "pkg.bio.q-multi",
+        "prompt": "Select all membrane-bound organelles.",
+        "answerType": "multiChoice",
+        "choices": [
+          { "id": "a", "label": "Nucleus" },
+          { "id": "b", "label": "Ribosome" },
+          { "id": "c", "label": "Mitochondrion" }
+        ],
+        "answer": ["a", "c"]
+      },
+      {
+        "id": "pkg.bio.q-manual",
+        "prompt": "In your own words, explain why the mitochondrion is called the powerhouse of the cell.",
+        "answerType": "manual"
+      },
+      {
+        "id": "pkg.bio.q-int",
+        "prompt": "Humans have how many pairs of chromosomes? (integer)",
+        "answerType": "integer",
+        "answer": "23"
+      }
+    ]
+  },
+  "review": {
+    "sources": [
+      {
+        "id": "pkg.bio.src-mito",
+        "kind": "basic",
+        "front": "Mitochondrion",
+        "back": "Generates ATP via cellular respiration",
+        "cards": [{ "id": "pkg.bio.c-mito" }]
+      }
+    ]
+  }
+}

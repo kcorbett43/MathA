@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "id": "pkg.prob.u1-dice",
+    "version": 1,
+    "title": "Counting & dice",
+    "order": 1,
+    "blurb": "Sample spaces and classical probability",
+    "tags": ["probability"]
+  },
+  "lesson": {
+    "intro": "Size the sample space, count favorable outcomes, write $P(A)=|A|/|\\Omega|$.",
+    "definitions": [
+      {
+        "term": "Classical probability",
+        "body": "When outcomes are equally likely, $P(A)=|A|/|\\Omega|$."
+      }
+    ],
+    "examples": [
+      {
+        "id": "pkg.prob.ex-sum7",
+        "title": "2d6 sum = 7",
+        "prompt": "Two fair six-sided dice. What is $P(\\mathrm{sum}=7)$?",
+        "answerType": "rational",
+        "answer": "1/6",
+        "steps": ["|Ω|=36", "6 favorable", "6/36=1/6"]
+      }
+    ]
+  },
+  "practice": {
+    "sessionSize": 8,
+    "mix": { "authored": 0.4, "generated": 0.6 },
+    "generators": ["dice"],
+    "questions": [
+      {
+        "id": "pkg.prob.q-classical",
+        "prompt": "Two fair dice. $P(\\mathrm{sum}=7)$?",
+        "answerType": "rational",
+        "answer": "1/6",
+        "tags": ["intro"]
+      },
+      {
+        "id": "pkg.prob.q-choice",
+        "prompt": "|Ω| for two fair 6-sided dice?",
+        "answerType": "choice",
+        "choices": [
+          { "id": "a", "label": "12" },
+          { "id": "b", "label": "36" },
+          { "id": "c", "label": "6" }
+        ],
+        "answer": "b"
+      }
+    ]
+  },
+  "review": {
+    "sources": [
+      {
+        "id": "pkg.prob.src-classical",
+        "kind": "reversible",
+        "front": "Classical probability",
+        "back": "$P(A)=|A|/|\\Omega|$",
+        "cards": [
+          { "id": "pkg.prob.c-classical-fwd", "direction": "forward" },
+          { "id": "pkg.prob.c-classical-rev", "direction": "reverse" }
+        ],
+        "tags": ["definition"]
+      },
+      {
+        "id": "pkg.prob.src-omega",
+        "kind": "basic",
+        "front": "|Ω| for two fair F-sided dice",
+        "back": "$F \\times F$",
+        "cards": [{ "id": "pkg.prob.c-omega", "direction": "forward" }]
+      }
+    ]
+  }
+}

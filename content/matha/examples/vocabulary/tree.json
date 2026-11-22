@@ -1,0 +1,11 @@
+{
+  "roots": ["pkg.vocab.c-root"],
+  "collections": [
+    {
+      "id": "pkg.vocab.c-root",
+      "title": "Vocabulary (imported)",
+      "blurb": "Review-forward deck: basic, reversible, cloze",
+      "children": [{ "kind": "unit", "id": "pkg.vocab.u1-gre" }]
+    }
+  ]
+}
