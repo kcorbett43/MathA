@@ -6,7 +6,6 @@ export const packU3Ev: ContentPack = {
     id: 'u3-ev',
     version: 3,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
-    moduleId: 'm1-foundations',
     title: 'Expected value',
     order: 3,
     blurb: 'E[X] definition, linearity, and indicators',

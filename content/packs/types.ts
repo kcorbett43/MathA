@@ -3,7 +3,7 @@ import type { QuantSkillId } from '@/lib/quantTypes';
 /**
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
- * v3: modules registry + required `meta.moduleId` (Learn → Modules → Units).
+ * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
  */
 export const CONTENT_PACK_SCHEMA_VERSION = 3 as const;
 
@@ -13,21 +13,26 @@ export type GeneratorId = QuantSkillId;
 /** Pack id slug, e.g. `u1-dice`. */
 export type PackId = string;
 
-/** Module id slug, e.g. `m1-foundations`. */
-export type ModuleId = string;
+/** Collection id slug, e.g. `c-foundations`. */
+export type CollectionId = string;
 
 /**
- * A Learn module groups related units (packs).
- * Navigation: Learn → Modules → Units.
+ * Child of a Learn collection: another collection (nest deeper) or a leaf unit pack.
+ * Depth is unlimited in schema; UI uses breadcrumbs.
  */
-export type LearnModule = {
-  id: ModuleId;
+export type CollectionChild =
+  | { kind: 'collection'; id: CollectionId }
+  | { kind: 'pack'; id: PackId };
+
+/**
+ * Nested Learn folder. Not a fixed book/chapter level — any collection may
+ * contain collections and/or packs.
+ */
+export type LearnCollection = {
+  id: CollectionId;
   title: string;
-  blurb: string;
-  /** Display order among modules (1-based). */
-  order: number;
-  /** Pack ids in curriculum order within this module. */
-  unitIds: PackId[];
+  blurb?: string;
+  children: CollectionChild[];
 };
 
 // ——— Spaced-repetition policies (learner-selectable later) ———
@@ -154,12 +159,10 @@ export type PackMeta = {
   /** Content revision (independent of schemaVersion). */
   version: number;
   schemaVersion: typeof CONTENT_PACK_SCHEMA_VERSION;
-  /** Parent Learn module (see `LEARN_MODULES`). */
-  moduleId: ModuleId;
   title: string;
   /**
-   * Display order within the module (1-based).
-   * Module membership is authoritative via `LearnModule.unitIds`.
+   * Display order hint (1-based). Authoritative placement is the parent
+   * collection’s `children` array.
    */
   order: number;
   blurb: string;
@@ -170,6 +173,7 @@ export type PackMeta = {
 /**
  * One Learn unit: lesson copy + drill mix config + graph links.
  * Authors add packs as TS modules matching this shape — no new screens required.
+ * Placement in the Learn tree is via `LearnCollection.children`.
  */
 export type ContentPack = {
   meta: PackMeta;
