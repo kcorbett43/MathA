@@ -4,11 +4,16 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU3Ev: ContentPack = {
   meta: {
     id: 'u3-ev',
-    version: 1,
+    version: 2,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Expected value',
     order: 3,
     blurb: 'E[X] definition, linearity, and indicators',
+    links: {
+      before: ['u2-urns'],
+      after: [],
+      prerequisites: ['u1-dice', 'u2-urns'],
+    },
   },
   lesson: {
     intro:
@@ -61,6 +66,6 @@ export const packU3Ev: ContentPack = {
     n: 12,
     newShare: 0.7,
     newTopicTags: ['ev'],
-    reviewTopicTags: ['dice', 'urns'],
+    // reviewTopicTags derived from prerequisites → dice + urns
   },
 };

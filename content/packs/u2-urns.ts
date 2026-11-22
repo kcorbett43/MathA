@@ -4,11 +4,16 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU2Urns: ContentPack = {
   meta: {
     id: 'u2-urns',
-    version: 1,
+    version: 2,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Urns & conditional',
     order: 2,
     blurb: 'Without replacement and P(2nd | 1st)',
+    links: {
+      before: ['u1-dice'],
+      after: ['u3-ev'],
+      prerequisites: ['u1-dice'],
+    },
   },
   lesson: {
     intro:
@@ -64,6 +69,6 @@ export const packU2Urns: ContentPack = {
     n: 12,
     newShare: 0.75,
     newTopicTags: ['urns'],
-    reviewTopicTags: ['dice'],
+    // reviewTopicTags derived from prerequisites → u1-dice.newTopicTags (dice)
   },
 };

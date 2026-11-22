@@ -4,11 +4,16 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU1Dice: ContentPack = {
   meta: {
     id: 'u1-dice',
-    version: 1,
+    version: 2,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     title: 'Counting & dice',
     order: 1,
     blurb: 'Equally likely outcomes and sample-space counting',
+    links: {
+      before: [],
+      after: ['u2-urns'],
+      prerequisites: [],
+    },
   },
   lesson: {
     intro:
@@ -68,6 +73,6 @@ export const packU1Dice: ContentPack = {
     n: 10,
     newShare: 1,
     newTopicTags: ['dice'],
-    reviewTopicTags: [],
+    // No priors — review pool empty (policy standard still → 100% new)
   },
 };

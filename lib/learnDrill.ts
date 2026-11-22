@@ -1,4 +1,11 @@
-import type { ContentPack, GeneratorId } from '@/content/packs';
+import {
+  resolveNewShare,
+  resolveReviewTopicTags,
+  RUNTIME_SPACED_REP_POLICY,
+  type ContentPack,
+  type GeneratorId,
+  type SpacedRepPolicyId,
+} from '@/content/packs';
 import { pick } from '@/lib/random';
 
 /** Fisher–Yates shuffle (mutates a copy). */
@@ -15,18 +22,29 @@ function shuffle<T>(items: T[]): T[] {
 
 /**
  * Build an interleaved skill sequence for a Learn pack drill.
- * newCount = round(n × newShare); review fills the rest from reviewTopicTags.
+ * Policy defaults to `RUNTIME_SPACED_REP_POLICY` (`standard` = current mixes).
  */
-export function buildLearnDrillSequence(pack: ContentPack): GeneratorId[] {
-  const { n, newShare, newTopicTags, reviewTopicTags } = pack.drill;
+export function buildLearnDrillSequence(
+  pack: ContentPack,
+  policy: SpacedRepPolicyId = RUNTIME_SPACED_REP_POLICY,
+): GeneratorId[] {
+  const { n, newTopicTags } = pack.drill;
   if (n <= 0) return [];
   if (newTopicTags.length === 0) {
     throw new Error(`Pack ${pack.meta.id}: drill.newTopicTags must be non-empty`);
   }
 
-  const clampedShare = Math.min(1, Math.max(0, newShare));
-  const newCount = Math.round(n * clampedShare);
-  const reviewCount = n - newCount;
+  const newShare = resolveNewShare(pack, policy);
+  const reviewTopicTags = resolveReviewTopicTags(pack);
+
+  let newCount = Math.round(n * newShare);
+  let reviewCount = n - newCount;
+
+  // No review pool → all new (e.g. first unit, or policy none with empty pool)
+  if (reviewTopicTags.length === 0) {
+    newCount = n;
+    reviewCount = 0;
+  }
 
   const slots: GeneratorId[] = [];
 
@@ -34,26 +52,22 @@ export function buildLearnDrillSequence(pack: ContentPack): GeneratorId[] {
     slots.push(newTopicTags[i % newTopicTags.length]!);
   }
 
-  if (reviewCount > 0) {
-    if (reviewTopicTags.length === 0) {
-      // Fallback: fill with new topic if author left review empty but newShare < 1
-      for (let i = 0; i < reviewCount; i++) {
-        slots.push(newTopicTags[i % newTopicTags.length]!);
-      }
-    } else {
-      for (let i = 0; i < reviewCount; i++) {
-        slots.push(pick(reviewTopicTags));
-      }
-    }
+  for (let i = 0; i < reviewCount; i++) {
+    slots.push(pick(reviewTopicTags));
   }
 
   return shuffle(slots);
 }
 
-export function formatMixLabel(pack: ContentPack): string {
-  const pct = Math.round(pack.drill.newShare * 100);
+export function formatMixLabel(
+  pack: ContentPack,
+  policy: SpacedRepPolicyId = RUNTIME_SPACED_REP_POLICY,
+): string {
+  const reviewPool = resolveReviewTopicTags(pack);
+  const newShare = resolveNewShare(pack, policy);
+  const pct = Math.round(newShare * 100);
   const reviewPct = 100 - pct;
-  if (reviewPct <= 0) {
+  if (reviewPool.length === 0 || reviewPct <= 0) {
     return `${pack.drill.n} questions · 100% new`;
   }
   return `${pack.drill.n} questions · ~${pct}/${reviewPct} new/review`;

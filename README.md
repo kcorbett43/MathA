@@ -18,7 +18,7 @@ Score = **raw correct count**. As soon as the typed answer matches, score increm
 
 Separate Home entry — not mixed with timed drills or mental-math Practice.
 
-**Learn** — data-driven content packs (`content/packs/`): lesson (intro, defs, worked examples) → mixed drill with spaced review. v1 units: Counting & dice (10 @ 100%), Urns & conditional (12 @ ~75/25), Expected value (12 @ ~70/30). All units open. Schema: `content/packs/SCHEMA.md`.
+**Learn** — data-driven content packs (`content/packs/`): lesson (intro, defs, worked examples) → mixed drill with spaced review. v1 units: Counting & dice (10 @ 100%), Urns & conditional (12 @ ~75/25), Expected value (12 @ ~70/30). Packs declare `links` (before/after/prerequisites) and schema includes named SR policies (`none`/`light`/`standard`/`heavy`; runtime = standard). All units open. Schema: `content/packs/SCHEMA.md`.
 
 **Practice** — pure skill reps (100% that generator):
 
