@@ -2,42 +2,50 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { QUANT_SKILLS } from '@/lib/quantTypes';
 import { colors } from '@/lib/theme';
 
-export default function QuantSkillListScreen() {
+export default function QuantHomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
           <Text style={styles.title}>Quant</Text>
           <Text style={styles.subtitle}>
-            Probability interview drills. Fixed sets, no timer, no dashboard Elo.
+            Probability interview prep. Learn teaches then drills; Practice is pure skill reps.
+            No timer, no dashboard Elo.
           </Text>
         </View>
 
         <View style={styles.list}>
-          {QUANT_SKILLS.map((skill) => (
-            <Pressable
-              key={skill.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Start ${skill.label}`}
-              onPress={() =>
-                router.push({
-                  pathname: '/quant/session',
-                  params: { skill: skill.id },
-                })
-              }
-              style={({ pressed }) => [styles.skillRow, pressed && styles.pressed]}
-            >
-              <View style={styles.skillText}>
-                <Text style={styles.skillLabel}>{skill.label}</Text>
-                <Text style={styles.skillBlurb}>{skill.blurb}</Text>
-                <Text style={styles.skillMeta}>{skill.questionCount} questions</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Quant Learn"
+            onPress={() => router.push('/quant/learn')}
+            style={({ pressed }) => [styles.row, styles.rowPrimary, pressed && styles.pressed]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Learn</Text>
+              <Text style={styles.rowBlurb}>
+                Units with light defs, worked examples, then mixed practice
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Quant Practice"
+            onPress={() => router.push('/quant/practice')}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Practice</Text>
+              <Text style={styles.rowBlurb}>
+                Dice, urns, and EV — fixed sets, 100% that skill
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -74,36 +82,33 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
   },
-  skillRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  skillText: {
+  rowPrimary: {
+    borderColor: colors.primary,
+  },
+  rowText: {
     flex: 1,
     gap: 4,
   },
-  skillLabel: {
-    fontSize: 18,
-    fontWeight: '600',
+  rowLabel: {
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.text,
   },
-  skillBlurb: {
+  rowBlurb: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
-  },
-  skillMeta: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: 2,
   },
   chevron: {
     fontSize: 28,

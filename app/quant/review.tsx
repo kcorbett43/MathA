@@ -3,12 +3,13 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { packById } from '@/content/packs';
+import { getQuantReview } from '@/lib/quantSessionStore';
 import {
   quantSkillById,
   type QuantReviewItem,
   type QuantSkillId,
 } from '@/lib/quantTypes';
-import { getQuantReview } from '@/lib/quantSessionStore';
 import { colors } from '@/lib/theme';
 
 function parseSkill(raw: string | string[] | undefined): QuantSkillId {
@@ -17,15 +18,23 @@ function parseSkill(raw: string | string[] | undefined): QuantSkillId {
   return 'dice';
 }
 
+function paramString(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
 export default function QuantReviewScreen() {
-  const params = useLocalSearchParams<{ skill?: string }>();
+  const params = useLocalSearchParams<{ skill?: string; pack?: string }>();
   const skillId = useMemo(() => parseSkill(params.skill), [params.skill]);
+  const packIdParam = useMemo(() => paramString(params.pack), [params.pack]);
 
   const payload = useMemo(() => getQuantReview(), []);
+  const packId = payload?.packId ?? packIdParam;
+  const pack = packById(packId);
 
   const items: QuantReviewItem[] = payload?.items ?? [];
   const skill = quantSkillById(payload?.skillId ?? skillId);
   const correctCount = items.filter((i) => i.correct).length;
+  const titleLabel = pack?.meta.title ?? skill?.label ?? 'Quant';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -33,7 +42,7 @@ export default function QuantReviewScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Review</Text>
           <Text style={styles.subtitle}>
-            {skill?.label ?? 'Quant'} · {correctCount}/{items.length} correct
+            {titleLabel} · {correctCount}/{items.length} correct
           </Text>
         </View>
 
@@ -43,7 +52,9 @@ export default function QuantReviewScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {items.length === 0 ? (
-            <Text style={styles.empty}>No session to review. Start a Quant skill from Home.</Text>
+            <Text style={styles.empty}>
+              No session to review. Start a Quant Learn unit or Practice skill from Home.
+            </Text>
           ) : (
             items.map((item, i) => (
               <View key={`${i}-${item.correctAnswer}`} style={styles.card}>
@@ -75,27 +86,81 @@ export default function QuantReviewScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Practice more"
-            onPress={() =>
-              router.replace({
-                pathname: '/quant/session',
-                params: { skill: skill?.id ?? skillId },
-              })
-            }
-            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-          >
-            <Text style={styles.primaryText}>Practice more</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Skill list"
-            onPress={() => router.replace('/quant')}
-            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-          >
-            <Text style={styles.secondaryText}>Skill list</Text>
-          </Pressable>
+          {pack ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Replay drill"
+                onPress={() =>
+                  router.replace({
+                    pathname: '/quant/session',
+                    params: { pack: pack.meta.id },
+                  })
+                }
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+              >
+                <Text style={styles.primaryText}>Replay drill</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back to lesson"
+                onPress={() =>
+                  router.replace({
+                    pathname: '/quant/learn/[packId]',
+                    params: { packId: pack.meta.id },
+                  })
+                }
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              >
+                <Text style={styles.secondaryText}>Back to lesson</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Practice this skill"
+                onPress={() =>
+                  router.replace({
+                    pathname: '/quant/session',
+                    params: { skill: skill?.id ?? pack.drill.newTopicTags[0] },
+                  })
+                }
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              >
+                <Text style={styles.secondaryText}>Practice this skill</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Learn units"
+                onPress={() => router.replace('/quant/learn')}
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              >
+                <Text style={styles.secondaryText}>Learn units</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Practice more"
+                onPress={() =>
+                  router.replace({
+                    pathname: '/quant/session',
+                    params: { skill: skill?.id ?? skillId },
+                  })
+                }
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+              >
+                <Text style={styles.primaryText}>Practice more</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Skill list"
+                onPress={() => router.replace('/quant/practice')}
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              >
+                <Text style={styles.secondaryText}>Skill list</Text>
+              </Pressable>
+            </>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go home"

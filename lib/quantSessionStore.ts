@@ -6,7 +6,10 @@ import type { QuantReviewItem, QuantSkillId } from '@/lib/quantTypes';
  * Kept until the next session overwrites it (safe under React Strict Mode remounts).
  */
 type QuantSessionPayload = {
+  /** Practice skill id (also set for Learn as the unit’s primary new topic). */
   skillId: QuantSkillId;
+  /** When set, session came from a Learn pack drill. */
+  packId?: string;
   items: QuantReviewItem[];
 };
 

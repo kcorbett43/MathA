@@ -8,8 +8,10 @@ import {
   QuantScratchPad,
   type QuantScratchPadHandle,
 } from '@/components/QuantScratchPad';
+import { packById, type GeneratorId } from '@/content/packs';
 import { answersMatch } from '@/lib/fraction';
 import { generateQuantQuestion } from '@/lib/generators/quant';
+import { buildLearnDrillSequence } from '@/lib/learnDrill';
 import { setQuantReview } from '@/lib/quantSessionStore';
 import {
   quantSkillById,
@@ -21,21 +23,80 @@ import { colors } from '@/lib/theme';
 
 const MAX_ANSWER_LEN = 12;
 
-function parseSkill(raw: string | string[] | undefined): QuantSkillId {
+function parseSkill(raw: string | string[] | undefined): QuantSkillId | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'dice' || value === 'urns' || value === 'ev') return value;
-  return 'dice';
+  return undefined;
 }
 
+function paramString(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+type SessionMode =
+  | { kind: 'practice'; skillId: QuantSkillId; total: number; label: string }
+  | {
+      kind: 'learn';
+      packId: string;
+      skillId: QuantSkillId;
+      total: number;
+      label: string;
+      sequence: GeneratorId[];
+    };
+
 export default function QuantSessionScreen() {
-  const params = useLocalSearchParams<{ skill?: string }>();
-  const skillId = useMemo(() => parseSkill(params.skill), [params.skill]);
-  const skill = quantSkillById(skillId)!;
-  const total = skill.questionCount;
+  const params = useLocalSearchParams<{ skill?: string; pack?: string }>();
+
+  const mode: SessionMode = useMemo(() => {
+    const packId = paramString(params.pack);
+    const pack = packById(packId);
+    if (pack) {
+      const sequence = buildLearnDrillSequence(pack);
+      const primary = (pack.drill.newTopicTags[0] ?? 'dice') as QuantSkillId;
+      return {
+        kind: 'learn' as const,
+        packId: pack.meta.id,
+        skillId: primary,
+        total: sequence.length,
+        label: pack.meta.title,
+        sequence,
+      };
+    }
+    const skillId = parseSkill(params.skill) ?? 'dice';
+    const skill = quantSkillById(skillId)!;
+    return {
+      kind: 'practice' as const,
+      skillId,
+      total: skill.questionCount,
+      label: skill.label,
+    };
+  }, [params.pack, params.skill]);
+
+  const sequenceRef = useRef<GeneratorId[] | null>(
+    mode.kind === 'learn' ? mode.sequence : null,
+  );
+  // Keep sequence stable for this mount (Learn regenerates on remount / replay).
+  if (mode.kind === 'learn' && sequenceRef.current === null) {
+    sequenceRef.current = mode.sequence;
+  }
+
+  const total = mode.total;
+  const sessionLabel = mode.label;
+
+  const skillAt = useCallback(
+    (i: number): QuantSkillId => {
+      if (mode.kind === 'learn') {
+        const seq = sequenceRef.current ?? mode.sequence;
+        return (seq[i] ?? mode.skillId) as QuantSkillId;
+      }
+      return mode.skillId;
+    },
+    [mode],
+  );
 
   const [index, setIndex] = useState(0);
   const [question, setQuestion] = useState<QuantQuestion>(() =>
-    generateQuantQuestion(skillId),
+    generateQuantQuestion(skillAt(0)),
   );
   const [answer, setAnswer] = useState('');
   const [hintVisible, setHintVisible] = useState(false);
@@ -47,8 +108,8 @@ export default function QuantSessionScreen() {
   const reviewRef = useRef<QuantReviewItem[]>([]);
   const stoppedRef = useRef(false);
   const scratchRef = useRef<QuantScratchPadHandle>(null);
-  const skillIdRef = useRef(skillId);
-  skillIdRef.current = skillId;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   questionRef.current = question;
 
   const commitAnswer = useCallback((next: string) => {
@@ -61,7 +122,6 @@ export default function QuantSessionScreen() {
       const current = answerRef.current;
       let next = current;
       const body = current.replace('-', '');
-      // Count digits only for length cap (slash doesn't count toward digit budget the same way)
       const digitCount = body.replace('/', '').length;
       if (digitCount >= MAX_ANSWER_LEN) next = current;
       else if (current === '0') next = digit;
@@ -85,13 +145,18 @@ export default function QuantSessionScreen() {
   const finishToReview = useCallback(() => {
     if (stoppedRef.current) return;
     stoppedRef.current = true;
+    const m = modeRef.current;
     setQuantReview({
-      skillId: skillIdRef.current,
+      skillId: m.skillId,
+      packId: m.kind === 'learn' ? m.packId : undefined,
       items: reviewRef.current,
     });
     router.replace({
       pathname: '/quant/review',
-      params: { skill: skillIdRef.current },
+      params:
+        m.kind === 'learn'
+          ? { pack: m.packId }
+          : { skill: m.skillId },
     });
   }, []);
 
@@ -122,10 +187,10 @@ export default function QuantSessionScreen() {
     setHintVisible(false);
     setScratchOpen(false);
     // resetKey (question index) wipes all scratch pages for the next item
-    const nextQ = generateQuantQuestion(skillIdRef.current);
+    const nextQ = generateQuantQuestion(skillAt(nextIndex));
     questionRef.current = nextQ;
     setQuestion(nextQ);
-  }, [finishToReview, total]);
+  }, [finishToReview, skillAt, total]);
 
   function goHome() {
     stoppedRef.current = true;
@@ -134,6 +199,8 @@ export default function QuantSessionScreen() {
 
   const canSubmit =
     answer.trim() !== '' && !answer.trim().endsWith('/') && !answer.includes('//');
+
+  const metaKindLabel = mode.kind === 'learn' ? 'Unit' : 'Skill';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -146,9 +213,9 @@ export default function QuantSessionScreen() {
             </Text>
           </View>
           <View style={[styles.metaBlock, styles.metaGrow]}>
-            <Text style={styles.metaLabel}>Skill</Text>
+            <Text style={styles.metaLabel}>{metaKindLabel}</Text>
             <Text style={styles.metaMode} numberOfLines={1}>
-              {skill.label}
+              {sessionLabel}
             </Text>
           </View>
           <Pressable
