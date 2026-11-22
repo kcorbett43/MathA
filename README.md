@@ -26,6 +26,8 @@ Separate Home entry — not mixed with timed drills or mental-math Practice.
 
 Untimed. Enter a number or fraction (`11/13`, reduced equivalents, or matching decimals), tap **Submit** — advances whether right or wrong. End **Review** lists each prompt, your answer, and right/wrong (correct answer on misses). No timer, no 3-2-1, no dashboard Elo writes.
 
+Optional **Scratch** opens a finger-draw pad (question stays on top; **Clear** / **Done**). Collapses back to the normal keypad UI. Uses `react-native-signature-canvas` in Expo Go.
+
 Generators are MathA-authored procedural templates (schemas inspired by public MIT Unbluffable quant families; no Jane Street puzzle text).
 
 ## Prerequisites

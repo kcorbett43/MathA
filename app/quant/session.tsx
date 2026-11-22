@@ -4,6 +4,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NumberPad } from '@/components/NumberPad';
+import {
+  QuantScratchPad,
+  type QuantScratchPadHandle,
+} from '@/components/QuantScratchPad';
 import { answersMatch } from '@/lib/fraction';
 import { generateQuantQuestion } from '@/lib/generators/quant';
 import { setQuantReview } from '@/lib/quantSessionStore';
@@ -35,12 +39,14 @@ export default function QuantSessionScreen() {
   );
   const [answer, setAnswer] = useState('');
   const [hintVisible, setHintVisible] = useState(false);
+  const [scratchOpen, setScratchOpen] = useState(false);
 
   const answerRef = useRef('');
   const questionRef = useRef(question);
   const indexRef = useRef(0);
   const reviewRef = useRef<QuantReviewItem[]>([]);
   const stoppedRef = useRef(false);
+  const scratchRef = useRef<QuantScratchPadHandle>(null);
   const skillIdRef = useRef(skillId);
   skillIdRef.current = skillId;
   questionRef.current = question;
@@ -114,6 +120,8 @@ export default function QuantSessionScreen() {
     answerRef.current = '';
     setAnswer('');
     setHintVisible(false);
+    setScratchOpen(false);
+    scratchRef.current?.clear();
     const nextQ = generateQuantQuestion(skillIdRef.current);
     questionRef.current = nextQ;
     setQuestion(nextQ);
@@ -154,60 +162,106 @@ export default function QuantSessionScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          style={styles.promptScroll}
-          contentContainerStyle={styles.promptBlock}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={styles.prompt}>{question.prompt}</Text>
-          <View style={styles.answerBox}>
-            <Text style={styles.answerText}>{answer || ' '}</Text>
-          </View>
-          {hintVisible && question.hint ? (
-            <Text style={styles.hintText}>{question.hint}</Text>
-          ) : null}
-        </ScrollView>
-
-        <View style={styles.toolbar}>
-          {question.hint ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Show hint"
-              disabled={hintVisible}
-              onPress={() => setHintVisible(true)}
-              style={({ pressed }) => [
-                styles.toolBtn,
-                hintVisible && styles.toolBtnDisabled,
-                pressed && !hintVisible && styles.chipPressed,
-              ]}
+        {scratchOpen ? (
+          <>
+            <ScrollView
+              style={styles.scratchPromptScroll}
+              contentContainerStyle={styles.scratchPromptBlock}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.toolBtnText}>{hintVisible ? 'Hint shown' : 'Hint'}</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.toolSpacer} />
-          )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Submit answer"
-            disabled={!canSubmit}
-            onPress={submit}
-            style={({ pressed }) => [
-              styles.submitBtn,
-              !canSubmit && styles.submitDisabled,
-              pressed && canSubmit && styles.pressed,
-            ]}
-          >
-            <Text style={styles.submitText}>Submit</Text>
-          </Pressable>
-        </View>
+              <Text style={styles.prompt}>{question.prompt}</Text>
+            </ScrollView>
 
-        <NumberPad
-          allowNegative={false}
-          allowFraction
-          onDigit={appendDigit}
-          onSlash={insertSlash}
-          onBackspace={backspace}
-        />
+            <QuantScratchPad ref={scratchRef} resetKey={index} />
+
+            <View style={styles.toolbar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear scratch pad"
+                onPress={() => scratchRef.current?.clear()}
+                style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+              >
+                <Text style={styles.toolBtnText}>Clear</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close scratch pad"
+                onPress={() => setScratchOpen(false)}
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.submitText}>Done</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <ScrollView
+              style={styles.promptScroll}
+              contentContainerStyle={styles.promptBlock}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.prompt}>{question.prompt}</Text>
+              <View style={styles.answerBox}>
+                <Text style={styles.answerText}>{answer || ' '}</Text>
+              </View>
+              {hintVisible && question.hint ? (
+                <Text style={styles.hintText}>{question.hint}</Text>
+              ) : null}
+            </ScrollView>
+
+            <View style={styles.toolbar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open scratch pad"
+                onPress={() => setScratchOpen(true)}
+                style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+              >
+                <Text style={styles.toolBtnText}>Scratch</Text>
+              </Pressable>
+              {question.hint ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Show hint"
+                  disabled={hintVisible}
+                  onPress={() => setHintVisible(true)}
+                  style={({ pressed }) => [
+                    styles.toolBtn,
+                    hintVisible && styles.toolBtnDisabled,
+                    pressed && !hintVisible && styles.chipPressed,
+                  ]}
+                >
+                  <Text style={styles.toolBtnText}>
+                    {hintVisible ? 'Hint shown' : 'Hint'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Submit answer"
+                disabled={!canSubmit}
+                onPress={submit}
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  !canSubmit && styles.submitDisabled,
+                  pressed && canSubmit && styles.pressed,
+                ]}
+              >
+                <Text style={styles.submitText}>Submit</Text>
+              </Pressable>
+            </View>
+
+            <NumberPad
+              allowNegative={false}
+              allowFraction
+              onDigit={appendDigit}
+              onSlash={insertSlash}
+              onBackspace={backspace}
+            />
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -274,11 +328,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
   },
+  scratchPromptScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxHeight: 140,
+  },
   promptBlock: {
     alignItems: 'center',
     gap: 16,
     paddingVertical: 8,
     paddingBottom: 12,
+  },
+  scratchPromptBlock: {
+    paddingVertical: 4,
+    paddingBottom: 8,
   },
   prompt: {
     fontSize: 20,
@@ -328,9 +391,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
-  },
-  toolSpacer: {
-    width: 72,
   },
   submitBtn: {
     flex: 1,
