@@ -33,6 +33,7 @@ c-foundations
 | Learn home | `app/quant/learn/index.tsx` |
 | Collection browser | `app/quant/learn/collection/[collectionId].tsx` (breadcrumbs) |
 | Lesson UI | `app/quant/learn/[packId].tsx` |
+| Try-first attempt | `app/quant/learn/example.tsx` |
 
 ## Collection shape
 
@@ -75,8 +76,8 @@ type ContentPack = {
       title: string;
       prompt: string;
       answer: string;           // canonical int or reduced n/d (graded)
-      steps: string[];         // revealed after attempt / Show solution
-      hint?: string;           // optional — try-first attempt UI (PR #9)
+      steps: string[];         // revealed after Submit or Show solution
+      hint?: string;           // optional — same Hint control as Practice
     }[];
   };
   drill: {
@@ -92,15 +93,17 @@ type ContentPack = {
 
 ## Try-first examples
 
-Schema-ready here; attempt UI lands in **PR #9** (`cursor/try-first-learn-examples-ceb3`). Rebase that PR after this change merges (or stack #9 onto this branch).
+Worked examples are **not** solution dumps on the lesson screen. Nav path:
+**Learn → collection(s) → unit lesson → Try** (attempt UI).
 
 | Surface | Behavior |
 |---------|----------|
-| Lesson (`learn/[packId]`) | Title + prompt + **Try** only — no steps/answer dump |
-| Attempt (`learn/example`) | Quant pad chrome: NumberPad, Scratch, optional Hint, Submit, Show solution |
-| After reveal | Canonical `answer` + `steps` |
+| Lesson (`learn/[packId]`) | Title + prompt + **Try** only — no steps/answer |
+| Attempt (`learn/example`) | Same Quant drill chrome: answer box, NumberPad, Scratch, optional Hint, **Submit**, **Show solution** |
+| After Submit | Grade with `answersMatch`; reveal Correct / Not quite, canonical `answer`, and `steps` |
+| After Show solution | Reveal `answer` + `steps` without requiring an attempt |
 
-Authors **must** supply `answer` + `steps` on every example.
+Authors **must** supply `answer` + `steps` on every example so grading and reveal work.
 
 ## Unit links (graph)
 
@@ -162,4 +165,4 @@ Named policies in `SPACED_REP_POLICIES` (`types.ts`):
 | Collections registry | `content/packs/collections.ts` |
 | Registry + review resolve | `content/packs/index.ts` |
 | Drill mix helper | `lib/learnDrill.ts` |
-| Collection / lesson / session | `app/quant/learn/*`, `app/quant/session.tsx` |
+| Collection / lesson / try-first / session | `app/quant/learn/*`, `app/quant/session.tsx` |

@@ -36,6 +36,7 @@ export const packU2Urns: ContentPack = {
       {
         title: 'P(not blue)',
         prompt: 'A bag has 3 red, 4 green, and 5 blue balls. Draw one. What is P(not blue)?',
+        hint: 'Favorable = everything except blue; total = all balls.',
         steps: [
           'Total = 3 + 4 + 5 = 12.',
           'Not blue = red + green = 7.',
@@ -47,6 +48,7 @@ export const packU2Urns: ContentPack = {
         title: 'P(2nd red | 1st red)',
         prompt:
           'A bag has 5 red and 3 blue. Draw two without replacement. Given the first is red, what is P(second is red)?',
+        hint: 'After removing one red, how many red and total remain?',
         steps: [
           'After removing one red: 4 red and 3 blue remain (7 total).',
           'P(2nd red | 1st red) = 4/7.',
@@ -57,6 +59,7 @@ export const packU2Urns: ContentPack = {
         title: 'Complement after conditioning',
         prompt:
           'Same bag (5 red, 3 blue). Given first is red, what is P(second is blue)?',
+        hint: 'After one red is gone: recount blue over the new total.',
         steps: [
           'After one red removed: 4 red, 3 blue, total 7.',
           'P(2nd blue | 1st red) = 3/7.',

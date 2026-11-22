@@ -111,18 +111,19 @@ export type PackDefinition = {
 };
 
 /**
- * Worked example on a unit lesson.
- * Try-first UX (PR #9): lesson shows title + prompt; `answer`/`steps` reveal
- * after attempt. Optional `hint` for the attempt screen.
+ * Try-first worked example. Lesson UI shows title + prompt only; the learner
+ * attempts with the Quant pad (Scratch / Hint / Submit / Show solution).
+ * `steps` + `answer` are revealed after submit or Show solution — never dumped
+ * on the lesson screen before an attempt.
  */
 export type PackExample = {
   title: string;
   prompt: string;
-  /** Canonical answer (integer or reduced `n/d`) for grading. */
+  /** Canonical answer string (integer or reduced `n/d`) for grading via `answersMatch`. */
   answer: string;
-  /** Worked solution lines (revealed after attempt / Show solution). */
+  /** Worked solution lines shown only after reveal. */
   steps: string[];
-  /** Optional hint for try-first attempt UI. */
+  /** Optional hint shown from the example attempt UI (same as Practice). */
   hint?: string;
 };
 

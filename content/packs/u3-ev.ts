@@ -36,6 +36,7 @@ export const packU3Ev: ContentPack = {
       {
         title: 'Fair d6',
         prompt: 'A fair six-sided die. What is E[X]?',
+        hint: 'Average of 1…F equals (F + 1) / 2.',
         steps: [
           'E[X] = (1+2+3+4+5+6)/6 = 21/6 = 7/2.',
           'Or use (F + 1)/2 with F = 6 → 7/2.',
@@ -45,6 +46,7 @@ export const packU3Ev: ContentPack = {
       {
         title: 'Heads in n flips',
         prompt: 'Flip 8 fair coins. Let X be the number of heads. What is E[X]?',
+        hint: 'Linearity: each coin contributes 1/2.',
         steps: [
           'Write X = I₁ + … + I₈ where Iⱼ = 1 if flip j is heads.',
           'E[Iⱼ] = 1/2, so E[X] = 8 × 1/2 = 4.',
@@ -54,6 +56,7 @@ export const packU3Ev: ContentPack = {
       {
         title: 'Two-point RV',
         prompt: 'X equals 2 with probability 1/3 and equals 5 otherwise. What is E[X]?',
+        hint: 'E[X] = a·P(X=a) + b·P(X=b).',
         steps: [
           'P(X = 5) = 1 − 1/3 = 2/3.',
           'E[X] = 2·(1/3) + 5·(2/3) = (2 + 10)/3 = 12/3 = 4.',
