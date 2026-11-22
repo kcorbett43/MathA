@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { ContentStoreProvider } from '@/lib/content/ContentStoreProvider';
 import { colors } from '@/lib/theme';
 
 export {
@@ -10,7 +11,7 @@ export {
 
 export default function RootLayout() {
   return (
-    <>
+    <ContentStoreProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -57,6 +58,10 @@ export default function RootLayout() {
           options={{ title: 'Review cards', headerBackTitle: 'Back' }}
         />
         <Stack.Screen
+          name="quant/learn/import"
+          options={{ title: 'Import', headerBackTitle: 'Collections' }}
+        />
+        <Stack.Screen
           name="quant/session"
           options={{ title: 'Practice', headerBackTitle: 'Back' }}
         />
@@ -65,6 +70,6 @@ export default function RootLayout() {
           options={{ title: 'Review', headerBackVisible: false }}
         />
       </Stack>
-    </>
+    </ContentStoreProvider>
   );
 }

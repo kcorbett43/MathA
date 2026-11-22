@@ -4,26 +4,31 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  cardsInPack,
   collectionById,
   collectionPath,
   countLeafPacks,
+  getLesson,
+  getPractice,
   resolveCollectionChildren,
 } from '@/content/packs';
 import { formatMixLabel } from '@/lib/learnDrill';
 import { colors } from '@/lib/theme';
+import { useContentStore } from '@/lib/content/ContentStoreProvider';
 
 function paramString(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
 export default function QuantLearnCollectionScreen() {
+  const { snapshot } = useContentStore();
   const params = useLocalSearchParams<{ collectionId?: string }>();
   const collectionId = paramString(params.collectionId);
-  const collection = useMemo(() => collectionById(collectionId), [collectionId]);
-  const path = useMemo(() => collectionPath(collectionId), [collectionId]);
+  const collection = useMemo(() => collectionById(collectionId), [collectionId, snapshot]);
+  const path = useMemo(() => collectionPath(collectionId), [collectionId, snapshot]);
   const children = useMemo(
     () => (collection ? resolveCollectionChildren(collection) : []),
-    [collection],
+    [collection, snapshot],
   );
 
   if (!collection) {
@@ -126,7 +131,14 @@ export default function QuantLearnCollectionScreen() {
             }
 
             const { pack } = child;
-            const cardCount = pack.cards.length;
+            const cardCount = cardsInPack(pack).length;
+            const hasLesson = Boolean(getLesson(pack));
+            const hasPractice = Boolean(getPractice(pack));
+            const activityBits = [
+              hasLesson ? 'Lesson' : null,
+              hasPractice ? formatMixLabel(pack) : null,
+              cardCount > 0 ? `Review · ${cardCount}` : null,
+            ].filter(Boolean);
             return (
               <View key={`p-${pack.meta.id}`} style={styles.unitBlock}>
                 <Pressable
@@ -145,8 +157,10 @@ export default function QuantLearnCollectionScreen() {
                   </View>
                   <View style={styles.rowText}>
                     <Text style={styles.rowLabel}>{pack.meta.title}</Text>
-                    <Text style={styles.rowBlurb}>{pack.meta.blurb}</Text>
-                    <Text style={styles.rowMeta}>{formatMixLabel(pack)}</Text>
+                    {pack.meta.blurb ? (
+                      <Text style={styles.rowBlurb}>{pack.meta.blurb}</Text>
+                    ) : null}
+                    <Text style={styles.rowMeta}>{activityBits.join(' · ') || 'Unit'}</Text>
                   </View>
                   <Text style={styles.chevron}>›</Text>
                 </Pressable>

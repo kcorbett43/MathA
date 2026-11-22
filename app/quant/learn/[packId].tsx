@@ -3,14 +3,23 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { packById } from '@/content/packs';
+import { ContentMarkdown } from '@/components/ContentMarkdown';
+import {
+  cardsInPack,
+  getLesson,
+  getPractice,
+  packById,
+} from '@/content/packs';
+import { assetUrisForPack } from '@/lib/content/assetUris';
+import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { formatMixLabel } from '@/lib/learnDrill';
 import { colors } from '@/lib/theme';
 
 export default function QuantLearnLessonScreen() {
+  const { snapshot } = useContentStore();
   const params = useLocalSearchParams<{ packId?: string }>();
   const packId = Array.isArray(params.packId) ? params.packId[0] : params.packId;
-  const pack = useMemo(() => packById(packId), [packId]);
+  const pack = useMemo(() => packById(packId), [packId, snapshot]);
 
   if (!pack) {
     return (
@@ -29,7 +38,13 @@ export default function QuantLearnLessonScreen() {
     );
   }
 
-  const { lesson, meta } = pack;
+  const lesson = getLesson(pack);
+  const practice = getPractice(pack);
+  const cardCount = cardsInPack(pack).length;
+  const assetUris = assetUrisForPack(pack);
+  const { meta } = pack;
+  const examples = lesson?.examples ?? [];
+  const definitions = lesson?.definitions ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -41,66 +56,99 @@ export default function QuantLearnLessonScreen() {
           <View style={styles.intro}>
             <Text style={styles.kicker}>Unit {meta.order}</Text>
             <Text style={styles.title}>{meta.title}</Text>
-            <Text style={styles.lead}>{lesson.intro}</Text>
+            {lesson?.intro ? (
+              <ContentMarkdown text={lesson.intro} assetUris={assetUris} style={styles.lead} />
+            ) : null}
+            {!lesson ? (
+              <Text style={styles.lead}>
+                This unit has no lesson — use Practice or Review cards below.
+              </Text>
+            ) : null}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Definitions</Text>
-            {lesson.definitions.map((def) => (
-              <View key={def.term} style={styles.defBlock}>
-                <Text style={styles.defTerm}>{def.term}</Text>
-                <Text style={styles.defBody}>{def.body}</Text>
-              </View>
-            ))}
-          </View>
+          {definitions.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Definitions</Text>
+              {definitions.map((def) => (
+                <View key={def.term} style={styles.defBlock}>
+                  <Text style={styles.defTerm}>{def.term}</Text>
+                  <ContentMarkdown text={def.body} assetUris={assetUris} style={styles.defBody} />
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Try these first</Text>
-            <Text style={styles.sectionLead}>
-              Attempt each example with the same pad as Practice. Steps and the answer unlock after
-              you submit — or tap Show solution.
-            </Text>
-            {lesson.examples.map((ex, i) => (
-              <View key={`${ex.title}-${i}`} style={styles.example}>
-                <Text style={styles.exampleTitle}>
-                  {i + 1}. {ex.title}
-                </Text>
-                <Text style={styles.examplePrompt}>{ex.prompt}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Try example ${i + 1}: ${ex.title}`}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/quant/learn/example',
-                      params: { packId: meta.id, i: String(i) },
-                    })
-                  }
-                  style={({ pressed }) => [styles.tryBtn, pressed && styles.pressed]}
-                >
-                  <Text style={styles.tryBtnText}>Try</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
+          {examples.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Try these first</Text>
+              <Text style={styles.sectionLead}>
+                Attempt each example. Input matches the question type. Steps and the answer unlock
+                after you submit — or tap Show solution.
+              </Text>
+              {examples.map((ex, i) => (
+                <View key={`${ex.title}-${i}`} style={styles.example}>
+                  <Text style={styles.exampleTitle}>
+                    {i + 1}. {ex.title}
+                  </Text>
+                  <ContentMarkdown
+                    text={ex.prompt}
+                    assetUris={assetUris}
+                    style={styles.examplePrompt}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Try example ${i + 1}: ${ex.title}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/quant/learn/example',
+                        params: { packId: meta.id, i: String(i) },
+                      })
+                    }
+                    style={({ pressed }) => [styles.tryBtn, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.tryBtnText}>Try</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-          <Text style={styles.mixNote}>{formatMixLabel(pack)}</Text>
+          {cardCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Review ${cardCount} cards`}
+              onPress={() =>
+                router.push({
+                  pathname: '/quant/learn/cards',
+                  params: { packId: meta.id },
+                })
+              }
+              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+            >
+              <Text style={styles.secondaryText}>Review cards · {cardCount}</Text>
+            </Pressable>
+          ) : null}
+
+          {practice ? <Text style={styles.mixNote}>{formatMixLabel(pack)}</Text> : null}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start practice drill"
-            onPress={() =>
-              router.push({
-                pathname: '/quant/session',
-                params: { pack: meta.id },
-              })
-            }
-            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-          >
-            <Text style={styles.primaryText}>Start practice</Text>
-          </Pressable>
-        </View>
+        {practice ? (
+          <View style={styles.footer}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start practice drill"
+              onPress={() =>
+                router.push({
+                  pathname: '/quant/session',
+                  params: { pack: meta.id },
+                })
+              }
+              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+            >
+              <Text style={styles.primaryText}>Start practice</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -213,6 +261,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  secondary: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  secondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 16,
@@ -227,6 +285,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   primaryText: {
     color: '#FFFFFF',

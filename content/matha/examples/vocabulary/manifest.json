@@ -1,0 +1,11 @@
+{
+  "packageId": "pkg.vocab.gre",
+  "revision": 1,
+  "formatVersion": 1,
+  "title": "Vocabulary — GRE starters",
+  "scope": "collection",
+  "attribution": {
+    "author": "MathA examples",
+    "license": "MIT"
+  }
+}

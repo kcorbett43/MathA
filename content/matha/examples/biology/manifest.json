@@ -1,0 +1,12 @@
+{
+  "packageId": "pkg.bio.cell",
+  "revision": 2,
+  "formatVersion": 1,
+  "title": "Biology — cell basics",
+  "scope": "collection",
+  "attribution": {
+    "author": "MathA examples",
+    "license": "MIT",
+    "sourceUrl": "https://example.com/bio"
+  }
+}

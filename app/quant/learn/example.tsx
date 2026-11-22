@@ -3,16 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NumberPad } from '@/components/NumberPad';
+import { AnswerInput } from '@/components/AnswerInput';
+import { ContentMarkdown } from '@/components/ContentMarkdown';
 import {
   QuantScratchPad,
   type QuantScratchPadHandle,
 } from '@/components/QuantScratchPad';
-import { packById } from '@/content/packs';
-import { answersMatch } from '@/lib/fraction';
+import { gradeAuthoredAnswer } from '@/content/matha';
+import { packById, type AnswerType } from '@/content/packs';
+import { assetUrisForPack } from '@/lib/content/assetUris';
 import { colors } from '@/lib/theme';
-
-const MAX_ANSWER_LEN = 12;
 
 function paramString(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
@@ -32,27 +32,35 @@ export default function QuantLearnExampleScreen() {
   const exampleIndex = parseIndex(params.i);
 
   const pack = useMemo(() => packById(packId), [packId]);
-  const example = pack?.lesson.examples[exampleIndex];
-  const exampleCount = pack?.lesson.examples.length ?? 0;
+  const example = pack?.lesson?.examples?.[exampleIndex];
+  const exampleCount = pack?.lesson?.examples?.length ?? 0;
   const isLast = exampleIndex >= exampleCount - 1;
+  const assetUris = assetUrisForPack(pack);
+  const answerType: AnswerType = example?.answerType ?? 'rational';
+  const isManual = answerType === 'manual';
+  const isChoice = answerType === 'choice' || answerType === 'multiChoice';
+  const usesPad = answerType === 'rational' || answerType === 'integer';
 
   const [answer, setAnswer] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hintVisible, setHintVisible] = useState(false);
   const [scratchOpen, setScratchOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('attempt');
+  const [manualPhase, setManualPhase] = useState<'prompt' | 'revealed'>('prompt');
   const [correct, setCorrect] = useState<boolean | null>(null);
-  const [revealedVia, setRevealedVia] = useState<'submit' | 'show' | null>(null);
+  const [revealedVia, setRevealedVia] = useState<'submit' | 'show' | 'self' | null>(null);
 
   const answerRef = useRef('');
   const scratchRef = useRef<QuantScratchPadHandle>(null);
 
-  // Same route + new `i` keeps the screen mounted — reset attempt state.
   useEffect(() => {
     answerRef.current = '';
     setAnswer('');
+    setSelectedIds([]);
     setHintVisible(false);
     setScratchOpen(false);
     setPhase('attempt');
+    setManualPhase('prompt');
     setCorrect(null);
     setRevealedVia(null);
   }, [packId, exampleIndex]);
@@ -62,35 +70,7 @@ export default function QuantLearnExampleScreen() {
     setAnswer(next);
   }, []);
 
-  const appendDigit = useCallback(
-    (digit: string) => {
-      if (phase !== 'attempt') return;
-      const current = answerRef.current;
-      let next = current;
-      const body = current.replace('-', '');
-      const digitCount = body.replace('/', '').length;
-      if (digitCount >= MAX_ANSWER_LEN) next = current;
-      else if (current === '0') next = digit;
-      else next = current + digit;
-      commitAnswer(next);
-    },
-    [commitAnswer, phase],
-  );
-
-  const insertSlash = useCallback(() => {
-    if (phase !== 'attempt') return;
-    const current = answerRef.current;
-    if (current.includes('/')) return;
-    if (current === '' || current === '-') return;
-    commitAnswer(`${current}/`);
-  }, [commitAnswer, phase]);
-
-  const backspace = useCallback(() => {
-    if (phase !== 'attempt') return;
-    commitAnswer(answerRef.current.slice(0, -1));
-  }, [commitAnswer, phase]);
-
-  const reveal = useCallback((via: 'submit' | 'show', wasCorrect: boolean | null) => {
+  const reveal = useCallback((via: 'submit' | 'show' | 'self', wasCorrect: boolean | null) => {
     setScratchOpen(false);
     setRevealedVia(via);
     setCorrect(wasCorrect);
@@ -98,16 +78,43 @@ export default function QuantLearnExampleScreen() {
   }, []);
 
   const submit = useCallback(() => {
-    if (!example || phase !== 'attempt') return;
-    const user = answerRef.current.trim();
-    if (user === '' || user.endsWith('/')) return;
-    reveal('submit', answersMatch(user, example.answer));
-  }, [example, phase, reveal]);
+    if (!example || phase !== 'attempt' || isManual) return;
+
+    let user: string | string[] = answerRef.current.trim();
+    if (answerType === 'multiChoice') {
+      user = selectedIds;
+      if (user.length === 0) return;
+    } else if (answerType === 'choice') {
+      if (!user) return;
+    } else if (user === '' || (answerType === 'rational' && user.endsWith('/'))) {
+      return;
+    }
+
+    const graded = gradeAuthoredAnswer(
+      answerType,
+      user,
+      example.answer,
+      example.aliases,
+    );
+    reveal('submit', graded.kind === 'manual' ? null : graded.correct);
+  }, [answerType, example, isManual, phase, reveal, selectedIds]);
 
   const showSolution = useCallback(() => {
     if (!example || phase !== 'attempt') return;
+    if (isManual) {
+      setManualPhase('revealed');
+      return;
+    }
     reveal('show', null);
-  }, [example, phase, reveal]);
+  }, [example, isManual, phase, reveal]);
+
+  const selfMark = useCallback(
+    (wasCorrect: boolean) => {
+      if (!isManual || phase !== 'attempt') return;
+      reveal('self', wasCorrect);
+    },
+    [isManual, phase, reveal],
+  );
 
   const goNext = useCallback(() => {
     if (!pack) return;
@@ -143,16 +150,25 @@ export default function QuantLearnExampleScreen() {
 
   const canSubmit =
     phase === 'attempt' &&
-    answer.trim() !== '' &&
-    !answer.trim().endsWith('/') &&
-    !answer.includes('//');
+    !isManual &&
+    (answerType === 'multiChoice'
+      ? selectedIds.length > 0
+      : answerType === 'choice'
+        ? answer.trim() !== ''
+        : answerType === 'text'
+          ? answer.trim() !== ''
+          : answer.trim() !== '' && !answer.trim().endsWith('/') && !answer.includes('//'));
 
   const feedbackLabel =
     revealedVia === 'show'
       ? 'Solution'
-      : correct
-        ? 'Correct'
-        : 'Not quite';
+      : revealedVia === 'self'
+        ? correct
+          ? 'Marked correct'
+          : 'Marked missed'
+        : correct
+          ? 'Correct'
+          : 'Not quite';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -186,83 +202,103 @@ export default function QuantLearnExampleScreen() {
           </Pressable>
         </View>
 
-        {scratchOpen && phase === 'attempt' ? (
-          <ScrollView
-            style={styles.scratchPromptScroll}
-            contentContainerStyle={styles.scratchPromptBlock}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text style={styles.exampleTitle}>{example.title}</Text>
-            <Text style={styles.prompt}>{example.prompt}</Text>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            style={styles.promptScroll}
-            contentContainerStyle={styles.promptBlock}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text style={styles.exampleTitle}>{example.title}</Text>
-            <Text style={styles.prompt}>{example.prompt}</Text>
+        <ScrollView
+          style={styles.promptScroll}
+          contentContainerStyle={styles.promptBlock}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.exampleTitle}>{example.title}</Text>
+          {isManual ? <Text style={styles.manualBadge}>Manual · self-mark</Text> : null}
+          <ContentMarkdown text={example.prompt} assetUris={assetUris} style={styles.prompt} />
 
-            {phase === 'attempt' ? (
-              <>
-                <View style={styles.answerBox}>
-                  <Text style={styles.answerText}>{answer || ' '}</Text>
-                </View>
-                {hintVisible && example.hint ? (
-                  <Text style={styles.hintText}>{example.hint}</Text>
-                ) : null}
-              </>
-            ) : (
-              <View style={styles.revealBlock}>
-                <Text
-                  style={[
-                    styles.feedback,
-                    revealedVia === 'show'
-                      ? styles.feedbackNeutral
-                      : correct
-                        ? styles.feedbackOk
-                        : styles.feedbackBad,
-                  ]}
-                >
-                  {feedbackLabel}
-                </Text>
-                {revealedVia === 'submit' && answer.trim() ? (
-                  <Text style={styles.yourAnswer}>
-                    Your answer:{' '}
-                    <Text style={styles.yourAnswerValue}>{answer.trim()}</Text>
-                  </Text>
-                ) : null}
-                <Text style={styles.canonical}>
-                  Answer: <Text style={styles.canonicalValue}>{example.answer}</Text>
-                </Text>
-                <View style={styles.steps}>
-                  <Text style={styles.stepsLabel}>Worked steps</Text>
+          {phase === 'attempt' ? (
+            <>
+              {isManual && manualPhase === 'revealed' ? (
+                <View style={styles.revealBlock}>
+                  <Text style={styles.stepsLabel}>Solution</Text>
                   {example.steps.map((step, si) => (
                     <Text key={si} style={styles.step}>
                       {si + 1}. {step}
                     </Text>
                   ))}
                 </View>
+              ) : null}
+              {!isManual ? (
+                <AnswerInput
+                  answerType={answerType}
+                  choices={example.choices}
+                  value={answer}
+                  selectedIds={selectedIds}
+                  onChangeText={commitAnswer}
+                  onChangeSelectedIds={setSelectedIds}
+                  showNumberPad={false}
+                />
+              ) : null}
+              {hintVisible && example.hint ? (
+                <Text style={styles.hintText}>{example.hint}</Text>
+              ) : null}
+            </>
+          ) : (
+            <View style={styles.revealBlock}>
+              <Text
+                style={[
+                  styles.feedback,
+                  revealedVia === 'show'
+                    ? styles.feedbackNeutral
+                    : correct
+                      ? styles.feedbackOk
+                      : styles.feedbackBad,
+                ]}
+              >
+                {feedbackLabel}
+              </Text>
+              {revealedVia === 'submit' && (answer.trim() || selectedIds.length > 0) ? (
+                <Text style={styles.yourAnswer}>
+                  Your answer:{' '}
+                  <Text style={styles.yourAnswerValue}>
+                    {isChoice && selectedIds.length
+                      ? selectedIds.join(', ')
+                      : answer.trim() || selectedIds.join(', ')}
+                  </Text>
+                </Text>
+              ) : null}
+              {example.answer != null ? (
+                <Text style={styles.canonical}>
+                  Answer:{' '}
+                  <Text style={styles.canonicalValue}>
+                    {Array.isArray(example.answer)
+                      ? example.answer.join(', ')
+                      : example.answer}
+                  </Text>
+                </Text>
+              ) : null}
+              <View style={styles.steps}>
+                <Text style={styles.stepsLabel}>Worked steps</Text>
+                {example.steps.map((step, si) => (
+                  <Text key={si} style={styles.step}>
+                    {si + 1}. {step}
+                  </Text>
+                ))}
               </View>
-            )}
-          </ScrollView>
-        )}
+            </View>
+          )}
+        </ScrollView>
 
         {phase === 'attempt' ? (
           <>
-            <View
-              style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
-              pointerEvents={scratchOpen ? 'auto' : 'none'}
-            >
-              <QuantScratchPad ref={scratchRef} resetKey={exampleIndex} />
-            </View>
+            {usesPad && !isManual ? (
+              <View
+                style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
+                pointerEvents={scratchOpen ? 'auto' : 'none'}
+              >
+                <QuantScratchPad ref={scratchRef} resetKey={exampleIndex} />
+              </View>
+            ) : null}
 
-            {scratchOpen ? (
+            {scratchOpen && usesPad ? (
               <View style={styles.toolbar}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Clear current scratch page"
                   onPress={() => scratchRef.current?.clear()}
                   style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
                 >
@@ -270,36 +306,56 @@ export default function QuantLearnExampleScreen() {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Clear all scratch pages"
-                  onPress={() => scratchRef.current?.clearAll()}
-                  style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
-                >
-                  <Text style={styles.toolBtnText}>Clear all</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close scratch pad"
                   onPress={() => setScratchOpen(false)}
                   style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
                 >
                   <Text style={styles.submitText}>Done</Text>
                 </Pressable>
               </View>
+            ) : isManual ? (
+              <View style={styles.toolbar}>
+                {manualPhase === 'prompt' ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={showSolution}
+                    style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.submitText}>Show solution</Text>
+                  </Pressable>
+                ) : (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => selfMark(true)}
+                      style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.submitText}>Got it</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => selfMark(false)}
+                      style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+                    >
+                      <Text style={styles.toolBtnText}>Missed it</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
             ) : (
               <>
                 <View style={styles.toolbar}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Open scratch pad"
-                    onPress={() => setScratchOpen(true)}
-                    style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
-                  >
-                    <Text style={styles.toolBtnText}>Scratch</Text>
-                  </Pressable>
+                  {usesPad ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setScratchOpen(true)}
+                      style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+                    >
+                      <Text style={styles.toolBtnText}>Scratch</Text>
+                    </Pressable>
+                  ) : null}
                   {example.hint ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Show hint"
                       disabled={hintVisible}
                       onPress={() => setHintVisible(true)}
                       style={({ pressed }) => [
@@ -315,7 +371,6 @@ export default function QuantLearnExampleScreen() {
                   ) : null}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Show solution without answering"
                     onPress={showSolution}
                     style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
                   >
@@ -326,7 +381,6 @@ export default function QuantLearnExampleScreen() {
                 <View style={styles.toolbar}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Submit answer"
                     disabled={!canSubmit}
                     onPress={submit}
                     style={({ pressed }) => [
@@ -339,13 +393,14 @@ export default function QuantLearnExampleScreen() {
                   </Pressable>
                 </View>
 
-                <NumberPad
-                  allowNegative={false}
-                  allowFraction
-                  onDigit={appendDigit}
-                  onSlash={insertSlash}
-                  onBackspace={backspace}
-                />
+                {usesPad ? (
+                  <AnswerInput
+                    answerType={answerType}
+                    value={answer}
+                    onChangeText={commitAnswer}
+                    showNumberPad
+                  />
+                ) : null}
               </>
             )}
           </>
@@ -353,7 +408,6 @@ export default function QuantLearnExampleScreen() {
           <View style={styles.footer}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={isLast ? 'Back to lesson' : 'Next example'}
               onPress={goNext}
               style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
             >
@@ -369,10 +423,7 @@ export default function QuantLearnExampleScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: {
     flex: 1,
     paddingHorizontal: 20,
@@ -381,44 +432,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  missing: {
-    flex: 1,
-    padding: 24,
-    gap: 16,
-    justifyContent: 'center',
-  },
-  missingTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  metaBlock: {
-    gap: 2,
-  },
-  metaGrow: {
-    flex: 1,
-  },
+  missing: { flex: 1, padding: 24, gap: 16, justifyContent: 'center' },
+  missingTitle: { fontSize: 22, fontWeight: '700', color: colors.text },
+  metaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  metaBlock: { gap: 2 },
+  metaGrow: { flex: 1 },
   metaLabel: {
     fontSize: 12,
     color: colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  metaValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  metaMode: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  metaValue: { fontSize: 22, fontWeight: '700', color: colors.text },
+  metaMode: { fontSize: 15, fontWeight: '600', color: colors.text },
   chipBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -426,183 +452,61 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    alignItems: 'center',
   },
-  chipPressed: {
-    backgroundColor: colors.chip,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  promptScroll: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  scratchPromptScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-    maxHeight: 140,
-  },
-  promptBlock: {
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 8,
-    paddingBottom: 12,
-  },
-  scratchPromptBlock: {
-    paddingVertical: 4,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  scratchHost: {
-    flex: 1,
-    minHeight: 200,
-  },
-  scratchHostHidden: {
-    height: 0,
-    minHeight: 0,
-    overflow: 'hidden',
-    opacity: 0,
-  },
-  exampleTitle: {
-    fontSize: 14,
+  chipPressed: { opacity: 0.85 },
+  chipText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  promptScroll: { flexGrow: 1, flexShrink: 1 },
+  promptBlock: { gap: 12, paddingBottom: 8 },
+  exampleTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  manualBadge: {
+    fontSize: 12,
     fontWeight: '700',
     color: colors.primary,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    textAlign: 'center',
   },
-  prompt: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  answerBox: {
-    minWidth: 160,
-    minHeight: 52,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  answerText: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  hintText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  revealBlock: {
-    width: '100%',
-    gap: 10,
-    alignItems: 'stretch',
-    paddingHorizontal: 4,
-  },
-  feedback: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  feedbackOk: {
-    color: colors.success,
-  },
-  feedbackBad: {
-    color: colors.danger,
-  },
-  feedbackNeutral: {
-    color: colors.subtle,
-  },
-  yourAnswer: {
-    fontSize: 15,
-    color: colors.subtle,
-    textAlign: 'center',
-  },
-  yourAnswerValue: {
-    fontWeight: '700',
-    color: colors.text,
-  },
-  canonical: {
-    fontSize: 16,
-    color: colors.subtle,
-    textAlign: 'center',
-  },
-  canonicalValue: {
-    fontWeight: '700',
-    color: colors.success,
-  },
-  steps: {
-    gap: 6,
-    marginTop: 4,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
+  prompt: { fontSize: 17, lineHeight: 26, color: colors.subtle, fontWeight: '600' },
+  hintText: { fontSize: 15, lineHeight: 22, color: colors.muted },
+  revealBlock: { gap: 10 },
+  feedback: { fontSize: 18, fontWeight: '700' },
+  feedbackOk: { color: '#067647' },
+  feedbackBad: { color: '#B42318' },
+  feedbackNeutral: { color: colors.primary },
+  yourAnswer: { fontSize: 15, color: colors.muted },
+  yourAnswerValue: { color: colors.text, fontWeight: '600' },
+  canonical: { fontSize: 15, color: colors.muted },
+  canonicalValue: { color: colors.text, fontWeight: '700' },
+  steps: { gap: 6, marginTop: 4 },
   stepsLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.muted,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 2,
   },
-  step: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.subtle,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
+  step: { fontSize: 15, lineHeight: 22, color: colors.subtle },
+  scratchHost: { flex: 1, minHeight: 160 },
+  scratchHostHidden: { height: 0, overflow: 'hidden' },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   toolBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  toolBtnDisabled: {
-    opacity: 0.55,
-  },
-  toolBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  toolBtnDisabled: { opacity: 0.45 },
+  toolBtnText: { fontSize: 14, fontWeight: '600', color: colors.text },
   submitBtn: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: colors.primary,
     borderRadius: 12,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
-  submitDisabled: {
-    opacity: 0.45,
-  },
-  submitText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  footer: {
-    gap: 10,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
+  submitDisabled: { opacity: 0.45 },
+  submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  footer: { paddingTop: 4 },
+  pressed: { opacity: 0.85 },
 });

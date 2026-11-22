@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { packById } from '@/content/packs';
+import { cardsInPack, packById } from '@/content/packs';
+import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { colors } from '@/lib/theme';
 
 function paramString(raw: string | string[] | undefined): string | undefined {
@@ -11,10 +12,11 @@ function paramString(raw: string | string[] | undefined): string | undefined {
 }
 
 export default function LearnCardsReviewScreen() {
+  const { snapshot } = useContentStore();
   const params = useLocalSearchParams<{ packId?: string }>();
   const packId = paramString(params.packId);
-  const pack = useMemo(() => packById(packId), [packId]);
-  const cards = pack?.cards ?? [];
+  const pack = useMemo(() => packById(packId), [packId, snapshot]);
+  const cards = useMemo(() => (pack ? cardsInPack(pack) : []), [pack]);
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);

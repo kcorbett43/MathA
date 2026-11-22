@@ -1,0 +1,11 @@
+{
+  "packageId": "pkg.prob.foundations",
+  "revision": 1,
+  "formatVersion": 1,
+  "title": "Probability — dice intro",
+  "scope": "collection",
+  "attribution": {
+    "author": "MathA examples",
+    "license": "MIT"
+  }
+}

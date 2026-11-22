@@ -1,12 +1,15 @@
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { countLeafPacks, rootCollections } from '@/content/packs';
+import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { colors } from '@/lib/theme';
 
 export default function QuantLearnHomeScreen() {
-  const roots = rootCollections();
+  const { snapshot, ready } = useContentStore();
+  const roots = useMemo(() => rootCollections(), [snapshot]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -19,7 +22,25 @@ export default function QuantLearnHomeScreen() {
           </Text>
         </View>
 
+        {!ready ? <Text style={styles.subtitle}>Loading library…</Text> : null}
+
         <View style={styles.list}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Import a MathA package"
+            onPress={() => router.push('/quant/learn/import')}
+            style={({ pressed }) => [styles.row, styles.importRow, pressed && styles.pressed]}
+          >
+            <View style={[styles.orderBadge, styles.importBadge]}>
+              <Text style={styles.importBadgeText}>↓</Text>
+            </View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Import .matha</Text>
+              <Text style={styles.rowBlurb}>Install a package into this library</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+
           {roots.map((collection, index) => {
             const leafCount = countLeafPacks(collection);
             return (
@@ -98,6 +119,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  importRow: {
+    borderColor: colors.primary,
+    backgroundColor: colors.chip,
+  },
   orderBadge: {
     width: 32,
     height: 32,
@@ -105,6 +130,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chip,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  importBadge: {
+    backgroundColor: colors.primary,
+  },
+  importBadgeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   orderText: {
     fontSize: 15,
