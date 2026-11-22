@@ -8,10 +8,11 @@ import {
   QuantScratchPad,
   type QuantScratchPadHandle,
 } from '@/components/QuantScratchPad';
-import { packById, type GeneratorId } from '@/content/packs';
+import { packById } from '@/content/packs';
+import { gradeAuthoredAnswer } from '@/content/matha';
 import { answersMatch } from '@/lib/fraction';
 import { generateQuantQuestion } from '@/lib/generators/quant';
-import { buildLearnDrillSequence } from '@/lib/learnDrill';
+import { buildPracticeSequence, type PracticeSlot } from '@/lib/learnDrill';
 import { setQuantReview } from '@/lib/quantSessionStore';
 import {
   quantSkillById,
@@ -41,8 +42,25 @@ type SessionMode =
       skillId: QuantSkillId;
       total: number;
       label: string;
-      sequence: GeneratorId[];
+      sequence: PracticeSlot[];
     };
+
+function questionFromSlot(slot: PracticeSlot | undefined, fallback: QuantSkillId): QuantQuestion {
+  if (!slot || slot.kind === 'generated') {
+    return generateQuantQuestion(slot?.generatorId ?? fallback);
+  }
+  const q = slot.question;
+  const canonical =
+    q.answerType === 'multiChoice'
+      ? (Array.isArray(q.answer) ? q.answer.join(',') : String(q.answer ?? ''))
+      : String(Array.isArray(q.answer) ? q.answer[0] ?? '' : q.answer ?? '');
+  return {
+    prompt: q.prompt,
+    answer: canonical,
+    hint: q.hint,
+    skillId: fallback,
+  };
+}
 
 export default function QuantSessionScreen() {
   const params = useLocalSearchParams<{ skill?: string; pack?: string }>();
@@ -51,8 +69,10 @@ export default function QuantSessionScreen() {
     const packId = paramString(params.pack);
     const pack = packById(packId);
     if (pack) {
-      const sequence = buildLearnDrillSequence(pack);
-      const primary = (pack.drill.newTopicTags[0] ?? 'dice') as QuantSkillId;
+      const sequence = buildPracticeSequence(pack);
+      const primary = (pack.practice?.generators?.[0] ??
+        pack.drill?.newTopicTags?.[0] ??
+        'dice') as QuantSkillId;
       return {
         kind: 'learn' as const,
         packId: pack.meta.id,
@@ -72,7 +92,7 @@ export default function QuantSessionScreen() {
     };
   }, [params.pack, params.skill]);
 
-  const sequenceRef = useRef<GeneratorId[] | null>(
+  const sequenceRef = useRef<PracticeSlot[] | null>(
     mode.kind === 'learn' ? mode.sequence : null,
   );
   // Keep sequence stable for this mount (Learn regenerates on remount / replay).
@@ -83,20 +103,30 @@ export default function QuantSessionScreen() {
   const total = mode.total;
   const sessionLabel = mode.label;
 
-  const skillAt = useCallback(
-    (i: number): QuantSkillId => {
-      if (mode.kind === 'learn') {
-        const seq = sequenceRef.current ?? mode.sequence;
-        return (seq[i] ?? mode.skillId) as QuantSkillId;
-      }
-      return mode.skillId;
+  const slotAt = useCallback(
+    (i: number): PracticeSlot | undefined => {
+      if (mode.kind !== 'learn') return undefined;
+      const seq = sequenceRef.current ?? mode.sequence;
+      return seq[i];
     },
     [mode],
   );
 
+  const skillAt = useCallback(
+    (i: number): QuantSkillId => {
+      const slot = slotAt(i);
+      if (slot?.kind === 'generated') return slot.generatorId;
+      if (mode.kind === 'learn') return mode.skillId;
+      return mode.skillId;
+    },
+    [mode, slotAt],
+  );
+
   const [index, setIndex] = useState(0);
   const [question, setQuestion] = useState<QuantQuestion>(() =>
-    generateQuantQuestion(skillAt(0)),
+    mode.kind === 'learn'
+      ? questionFromSlot(slotAt(0), mode.skillId)
+      : generateQuantQuestion(skillAt(0)),
   );
   const [answer, setAnswer] = useState('');
   const [hintVisible, setHintVisible] = useState(false);
@@ -166,7 +196,19 @@ export default function QuantSessionScreen() {
     if (user === '' || user.endsWith('/')) return;
 
     const q = questionRef.current;
-    const correct = answersMatch(user, q.answer);
+    const slot = slotAt(indexRef.current);
+    let correct: boolean;
+    if (slot?.kind === 'authored') {
+      const graded = gradeAuthoredAnswer(
+        slot.question.answerType,
+        user,
+        slot.question.answer,
+        slot.question.aliases,
+      );
+      correct = graded.kind === 'manual' ? true : graded.correct;
+    } else {
+      correct = answersMatch(user, q.answer);
+    }
     reviewRef.current.push({
       prompt: q.prompt,
       userAnswer: user,
@@ -186,11 +228,13 @@ export default function QuantSessionScreen() {
     setAnswer('');
     setHintVisible(false);
     setScratchOpen(false);
-    // resetKey (question index) wipes all scratch pages for the next item
-    const nextQ = generateQuantQuestion(skillAt(nextIndex));
+    const nextQ =
+      modeRef.current.kind === 'learn'
+        ? questionFromSlot(slotAt(nextIndex), modeRef.current.skillId)
+        : generateQuantQuestion(skillAt(nextIndex));
     questionRef.current = nextQ;
     setQuestion(nextQ);
-  }, [finishToReview, skillAt, total]);
+  }, [finishToReview, skillAt, slotAt, total]);
 
   function goHome() {
     stoppedRef.current = true;

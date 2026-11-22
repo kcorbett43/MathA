@@ -32,8 +32,8 @@ export default function QuantLearnExampleScreen() {
   const exampleIndex = parseIndex(params.i);
 
   const pack = useMemo(() => packById(packId), [packId]);
-  const example = pack?.lesson.examples[exampleIndex];
-  const exampleCount = pack?.lesson.examples.length ?? 0;
+  const example = pack?.lesson?.examples?.[exampleIndex];
+  const exampleCount = pack?.lesson?.examples?.length ?? 0;
   const isLast = exampleIndex >= exampleCount - 1;
 
   const [answer, setAnswer] = useState('');
@@ -101,7 +101,10 @@ export default function QuantLearnExampleScreen() {
     if (!example || phase !== 'attempt') return;
     const user = answerRef.current.trim();
     if (user === '' || user.endsWith('/')) return;
-    reveal('submit', answersMatch(user, example.answer));
+    const canonical = Array.isArray(example.answer)
+      ? example.answer[0] ?? ''
+      : example.answer ?? '';
+    reveal('submit', answersMatch(user, canonical));
   }, [example, phase, reveal]);
 
   const showSolution = useCallback(() => {
@@ -234,7 +237,12 @@ export default function QuantLearnExampleScreen() {
                   </Text>
                 ) : null}
                 <Text style={styles.canonical}>
-                  Answer: <Text style={styles.canonicalValue}>{example.answer}</Text>
+                  Answer:{' '}
+                  <Text style={styles.canonicalValue}>
+                    {Array.isArray(example.answer)
+                      ? example.answer.join(', ')
+                      : example.answer}
+                  </Text>
                 </Text>
                 <View style={styles.steps}>
                   <Text style={styles.stepsLabel}>Worked steps</Text>

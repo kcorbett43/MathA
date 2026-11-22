@@ -1,12 +1,15 @@
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { countLeafPacks, rootCollections } from '@/content/packs';
+import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { colors } from '@/lib/theme';
 
 export default function QuantLearnHomeScreen() {
-  const roots = rootCollections();
+  const { snapshot, ready } = useContentStore();
+  const roots = useMemo(() => rootCollections(), [snapshot]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -18,6 +21,17 @@ export default function QuantLearnHomeScreen() {
             any order.
           </Text>
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Import a MathA package"
+          onPress={() => router.push('/quant/learn/import')}
+          style={({ pressed }) => [styles.importBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.importBtnText}>Import .matha</Text>
+        </Pressable>
+
+        {!ready ? <Text style={styles.subtitle}>Loading library…</Text> : null}
 
         <View style={styles.list}>
           {roots.map((collection, index) => {
@@ -83,6 +97,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.muted,
     maxWidth: 360,
+  },
+  importBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.chip,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  importBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
   list: {
     gap: 12,

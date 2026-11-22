@@ -120,7 +120,12 @@ export default function QuantReviewScreen() {
                 onPress={() =>
                   router.replace({
                     pathname: '/quant/session',
-                    params: { skill: skill?.id ?? pack.drill.newTopicTags[0] },
+                    params: {
+                      skill:
+                        skill?.id ??
+                        pack.practice?.generators?.[0] ??
+                        pack.drill?.newTopicTags?.[0],
+                    },
                   })
                 }
                 style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
