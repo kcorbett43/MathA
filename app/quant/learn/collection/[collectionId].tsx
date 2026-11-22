@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  cardsInCollection,
   collectionById,
   collectionPath,
   countLeafPacks,
@@ -23,6 +24,10 @@ export default function QuantLearnCollectionScreen() {
   const path = useMemo(() => collectionPath(collectionId), [collectionId]);
   const children = useMemo(
     () => (collection ? resolveCollectionChildren(collection) : []),
+    [collection],
+  );
+  const deckCards = useMemo(
+    () => (collection ? cardsInCollection(collection) : []),
     [collection],
   );
 
@@ -90,6 +95,29 @@ export default function QuantLearnCollectionScreen() {
           <Text style={styles.title}>{collection.title}</Text>
           {collection.blurb ? <Text style={styles.subtitle}>{collection.blurb}</Text> : null}
         </View>
+
+        {deckCards.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Review ${deckCards.length} flash cards in this collection`}
+            onPress={() =>
+              router.push({
+                pathname: '/quant/learn/cards',
+                params: { collectionId: collection.id },
+              })
+            }
+            style={({ pressed }) => [styles.reviewEntry, pressed && styles.pressed]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Review cards</Text>
+              <Text style={styles.rowBlurb}>
+                Flip study for {deckCards.length}{' '}
+                {deckCards.length === 1 ? 'card' : 'cards'} across units in this collection
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.list}>
           {children.map((child) => {
@@ -216,6 +244,17 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.muted,
     maxWidth: 360,
+  },
+  reviewEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
   },
   list: {
     gap: 12,

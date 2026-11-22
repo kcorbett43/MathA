@@ -4,8 +4,10 @@ import type { QuantSkillId } from '@/lib/quantTypes';
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
  * v3: nested Learn **collections** tree (unlimited depth) + breadcrumb nav.
+ * v4: embeddable lesson **flash cards** (`front`/`back`/`id`) as first-class
+ *     blocks; definitions migrate into cards; Review deck for pack/collection.
  */
-export const CONTENT_PACK_SCHEMA_VERSION = 3 as const;
+export const CONTENT_PACK_SCHEMA_VERSION = 4 as const;
 
 /** Maps to Quant Practice generators (`lib/generators/quant`). */
 export type GeneratorId = QuantSkillId;
@@ -105,10 +107,27 @@ export type PackLinks = {
   prerequisites: PackId[];
 };
 
-export type PackDefinition = {
-  term: string;
-  body: string;
+/**
+ * Embeddable flash card. Same object is shown inline in the lesson (callout /
+ * definition style) and collected into the pack/collection Review deck.
+ */
+export type PackCard = {
+  /** Stable id within the pack (and unique across a collection deck). */
+  id: string;
+  /** Prompt / term / formula name shown first. */
+  front: string;
+  /** Definition, formula, or short explanation. */
+  back: string;
 };
+
+/**
+ * Ordered lesson content. Cards are first-class blocks; prose/callouts sit
+ * beside them. v3 `definitions[]` migrated to `type: 'card'` blocks.
+ */
+export type LessonBlock =
+  | { type: 'text'; body: string }
+  | { type: 'callout'; body: string }
+  | ({ type: 'card' } & PackCard);
 
 /**
  * Try-first worked example. Lesson UI shows title + prompt only; the learner
@@ -130,7 +149,8 @@ export type PackExample = {
 export type PackLesson = {
   /** 1–2 sentences: what this unit unlocks / why it matters. */
   intro: string;
-  definitions: PackDefinition[];
+  /** Teachable stream: text, callouts, and embeddable flash cards. */
+  blocks: LessonBlock[];
   examples: PackExample[];
 };
 

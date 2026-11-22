@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { packById } from '@/content/packs';
+import { LessonCardBlock } from '@/components/LessonCardBlock';
+import { cardsInPack, packById } from '@/content/packs';
 import { formatMixLabel } from '@/lib/learnDrill';
 import { colors } from '@/lib/theme';
 
@@ -11,6 +12,7 @@ export default function QuantLearnLessonScreen() {
   const params = useLocalSearchParams<{ packId?: string }>();
   const packId = Array.isArray(params.packId) ? params.packId[0] : params.packId;
   const pack = useMemo(() => packById(packId), [packId]);
+  const cards = useMemo(() => (pack ? cardsInPack(pack) : []), [pack]);
 
   if (!pack) {
     return (
@@ -45,20 +47,59 @@ export default function QuantLearnLessonScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Definitions</Text>
-            {lesson.definitions.map((def) => (
-              <View key={def.term} style={styles.defBlock}>
-                <Text style={styles.defTerm}>{def.term}</Text>
-                <Text style={styles.defBody}>{def.body}</Text>
-              </View>
-            ))}
+            <Text style={styles.sectionTitle}>Lesson</Text>
+            {lesson.blocks.map((block, i) => {
+              if (block.type === 'text') {
+                return (
+                  <Text key={`t-${i}`} style={styles.blockText}>
+                    {block.body}
+                  </Text>
+                );
+              }
+              if (block.type === 'callout') {
+                return (
+                  <View key={`c-${i}`} style={styles.callout}>
+                    <Text style={styles.calloutText}>{block.body}</Text>
+                  </View>
+                );
+              }
+              return (
+                <LessonCardBlock
+                  key={block.id}
+                  card={{ id: block.id, front: block.front, back: block.back }}
+                />
+              );
+            })}
           </View>
+
+          {cards.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Review ${cards.length} flash cards`}
+              onPress={() =>
+                router.push({
+                  pathname: '/quant/learn/cards',
+                  params: { packId: meta.id },
+                })
+              }
+              style={({ pressed }) => [styles.reviewEntry, pressed && styles.pressed]}
+            >
+              <View style={styles.reviewText}>
+                <Text style={styles.reviewLabel}>Review cards</Text>
+                <Text style={styles.reviewBlurb}>
+                  Flip through {cards.length} {cards.length === 1 ? 'card' : 'cards'} from this
+                  unit
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          ) : null}
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Try these first</Text>
             <Text style={styles.sectionLead}>
-              Attempt each example with the same pad as Practice. Steps and the
-              answer unlock after you submit — or tap Show solution.
+              Attempt each example with the same pad as Practice. Steps and the answer unlock after
+              you submit — or tap Show solution.
             </Text>
             {lesson.examples.map((ex, i) => (
               <View key={`${ex.title}-${i}`} style={styles.example}>
@@ -75,10 +116,7 @@ export default function QuantLearnLessonScreen() {
                       params: { packId: meta.id, i: String(i) },
                     })
                   }
-                  style={({ pressed }) => [
-                    styles.tryBtn,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.tryBtn, pressed && styles.pressed]}
                 >
                   <Text style={styles.tryBtnText}>Try</Text>
                 </Pressable>
@@ -166,19 +204,52 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: -4,
   },
-  defBlock: {
-    gap: 4,
-    paddingVertical: 4,
+  blockText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.subtle,
   },
-  defTerm: {
+  callout: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.chip,
+  },
+  calloutText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.subtle,
+    fontWeight: '600',
+  },
+  reviewEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  reviewText: {
+    flex: 1,
+    gap: 4,
+  },
+  reviewLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
   },
-  defBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.subtle,
+  reviewBlurb: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  chevron: {
+    fontSize: 28,
+    color: colors.muted,
+    lineHeight: 28,
   },
   example: {
     gap: 10,
