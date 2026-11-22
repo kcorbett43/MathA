@@ -5,8 +5,10 @@ import { colors } from '@/lib/theme';
 
 type DrillTimerProps = {
   totalSeconds: number;
-  /** Bumps to restart the countdown (Reset). */
+  /** Bumps to restart the session clock after countdown / Reset. */
   runId: number;
+  /** False during the 3-2-1 intro — clock stays frozen and does not tick. */
+  active: boolean;
   onTimeUp: () => void;
   /** When true, ignore further ticks / time-up (abandoned or finished). */
   isStopped: () => boolean;
@@ -18,6 +20,7 @@ type DrillTimerProps = {
 function DrillTimerComponent({
   totalSeconds,
   runId,
+  active,
   onTimeUp,
   isStopped,
 }: DrillTimerProps) {
@@ -25,6 +28,8 @@ function DrillTimerComponent({
 
   useEffect(() => {
     setSecondsLeft(totalSeconds);
+    if (!active) return;
+
     const id = setInterval(() => {
       if (isStopped()) {
         clearInterval(id);
@@ -39,12 +44,12 @@ function DrillTimerComponent({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [runId, totalSeconds, isStopped]);
+  }, [runId, totalSeconds, active, isStopped]);
 
   useEffect(() => {
-    if (secondsLeft !== 0 || isStopped()) return;
+    if (!active || secondsLeft !== 0 || isStopped()) return;
     onTimeUp();
-  }, [secondsLeft, onTimeUp, isStopped]);
+  }, [secondsLeft, onTimeUp, isStopped, active]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
