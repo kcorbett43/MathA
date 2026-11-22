@@ -121,7 +121,7 @@ export default function QuantSessionScreen() {
     setAnswer('');
     setHintVisible(false);
     setScratchOpen(false);
-    scratchRef.current?.clear();
+    // resetKey (question index) wipes all scratch pages for the next item
     const nextQ = generateQuantQuestion(skillIdRef.current);
     questionRef.current = nextQ;
     setQuestion(nextQ);
@@ -163,55 +163,66 @@ export default function QuantSessionScreen() {
         </View>
 
         {scratchOpen ? (
-          <>
-            <ScrollView
-              style={styles.scratchPromptScroll}
-              contentContainerStyle={styles.scratchPromptBlock}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.prompt}>{question.prompt}</Text>
-            </ScrollView>
-
-            <QuantScratchPad ref={scratchRef} resetKey={index} />
-
-            <View style={styles.toolbar}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear scratch pad"
-                onPress={() => scratchRef.current?.clear()}
-                style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
-              >
-                <Text style={styles.toolBtnText}>Clear</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close scratch pad"
-                onPress={() => setScratchOpen(false)}
-                style={({ pressed }) => [
-                  styles.submitBtn,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.submitText}>Done</Text>
-              </Pressable>
+          <ScrollView
+            style={styles.scratchPromptScroll}
+            contentContainerStyle={styles.scratchPromptBlock}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.prompt}>{question.prompt}</Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            style={styles.promptScroll}
+            contentContainerStyle={styles.promptBlock}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.prompt}>{question.prompt}</Text>
+            <View style={styles.answerBox}>
+              <Text style={styles.answerText}>{answer || ' '}</Text>
             </View>
-          </>
+            {hintVisible && question.hint ? (
+              <Text style={styles.hintText}>{question.hint}</Text>
+            ) : null}
+          </ScrollView>
+        )}
+
+        {/* Keep mounted while collapsed so page strokes survive reopen on this question. */}
+        <View
+          style={scratchOpen ? styles.scratchHost : styles.scratchHostHidden}
+          pointerEvents={scratchOpen ? 'auto' : 'none'}
+        >
+          <QuantScratchPad ref={scratchRef} resetKey={index} />
+        </View>
+
+        {scratchOpen ? (
+          <View style={styles.toolbar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear current scratch page"
+              onPress={() => scratchRef.current?.clear()}
+              style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+            >
+              <Text style={styles.toolBtnText}>Clear</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all scratch pages"
+              onPress={() => scratchRef.current?.clearAll()}
+              style={({ pressed }) => [styles.toolBtn, pressed && styles.chipPressed]}
+            >
+              <Text style={styles.toolBtnText}>Clear all</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close scratch pad"
+              onPress={() => setScratchOpen(false)}
+              style={({ pressed }) => [styles.submitBtn, pressed && styles.pressed]}
+            >
+              <Text style={styles.submitText}>Done</Text>
+            </Pressable>
+          </View>
         ) : (
           <>
-            <ScrollView
-              style={styles.promptScroll}
-              contentContainerStyle={styles.promptBlock}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.prompt}>{question.prompt}</Text>
-              <View style={styles.answerBox}>
-                <Text style={styles.answerText}>{answer || ' '}</Text>
-              </View>
-              {hintVisible && question.hint ? (
-                <Text style={styles.hintText}>{question.hint}</Text>
-              ) : null}
-            </ScrollView>
-
             <View style={styles.toolbar}>
               <Pressable
                 accessibilityRole="button"
@@ -342,6 +353,16 @@ const styles = StyleSheet.create({
   scratchPromptBlock: {
     paddingVertical: 4,
     paddingBottom: 8,
+  },
+  scratchHost: {
+    flex: 1,
+    minHeight: 200,
+  },
+  scratchHostHidden: {
+    height: 0,
+    minHeight: 0,
+    overflow: 'hidden',
+    opacity: 0,
   },
   prompt: {
     fontSize: 20,
