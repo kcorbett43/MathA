@@ -22,18 +22,25 @@ export default function QuantLearnHomeScreen() {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Import a MathA package"
-          onPress={() => router.push('/quant/learn/import')}
-          style={({ pressed }) => [styles.importBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.importBtnText}>Import .matha</Text>
-        </Pressable>
-
         {!ready ? <Text style={styles.subtitle}>Loading library…</Text> : null}
 
         <View style={styles.list}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Import a MathA package"
+            onPress={() => router.push('/quant/learn/import')}
+            style={({ pressed }) => [styles.row, styles.importRow, pressed && styles.pressed]}
+          >
+            <View style={[styles.orderBadge, styles.importBadge]}>
+              <Text style={styles.importBadgeText}>↓</Text>
+            </View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Import .matha</Text>
+              <Text style={styles.rowBlurb}>Install a package into this library</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+
           {roots.map((collection, index) => {
             const leafCount = countLeafPacks(collection);
             return (
@@ -98,20 +105,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     maxWidth: 360,
   },
-  importBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.chip,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  importBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
-  },
   list: {
     gap: 12,
   },
@@ -126,6 +119,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  importRow: {
+    borderColor: colors.primary,
+    backgroundColor: colors.chip,
+  },
   orderBadge: {
     width: 32,
     height: 32,
@@ -133,6 +130,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chip,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  importBadge: {
+    backgroundColor: colors.primary,
+  },
+  importBadgeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   orderText: {
     fontSize: 15,

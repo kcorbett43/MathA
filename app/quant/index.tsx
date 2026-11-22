@@ -34,6 +34,21 @@ export default function LearnHubScreen() {
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Import a MathA package"
+            onPress={() => router.push('/quant/learn/import')}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Import .matha</Text>
+              <Text style={styles.rowBlurb}>
+                Preview and install a learning package into your library
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Open Practice skills"
             onPress={() => router.push('/quant/practice')}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
