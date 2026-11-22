@@ -4,29 +4,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/lib/theme';
 
-export default function QuantHomeScreen() {
+export default function LearnHubScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
-          <Text style={styles.title}>Quant</Text>
+          <Text style={styles.title}>Learn</Text>
           <Text style={styles.subtitle}>
-            Probability interview prep. Learn teaches then drills; Practice is pure skill reps.
-            No timer, no dashboard Elo.
+            A library of content collections — any topic you want to study. Browse folders, open
+            units, or jump into skill practice. No timer, no dashboard Elo.
           </Text>
         </View>
 
         <View style={styles.list}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open Quant Learn"
+            accessibilityLabel="Open collections"
             onPress={() => router.push('/quant/learn')}
             style={({ pressed }) => [styles.row, styles.rowPrimary, pressed && styles.pressed]}
           >
             <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>Learn</Text>
+              <Text style={styles.rowLabel}>Collections</Text>
               <Text style={styles.rowBlurb}>
-                Collections → units: light defs, worked examples, then mixed practice
+                Nested folders of units — lessons, examples, then mixed practice
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>
@@ -34,14 +34,14 @@ export default function QuantHomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open Quant Practice"
+            accessibilityLabel="Open Practice skills"
             onPress={() => router.push('/quant/practice')}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <View style={styles.rowText}>
               <Text style={styles.rowLabel}>Practice</Text>
               <Text style={styles.rowBlurb}>
-                Dice, urns, and EV — fixed sets, 100% that skill
+                Skill reps — fixed sets, Submit advances, review at the end
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>

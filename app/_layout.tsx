@@ -21,17 +21,24 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'MathA', headerShown: false }} />
-        <Stack.Screen name="drill" options={{ title: 'Drill', headerBackTitle: 'Home' }} />
+        <Stack.Screen name="drill/index" options={{ title: 'Drill', headerBackTitle: 'Home' }} />
+        <Stack.Screen
+          name="drill/session"
+          options={{ title: 'Drill', headerBackTitle: 'Drill' }}
+        />
         <Stack.Screen name="results" options={{ title: 'Results', headerBackVisible: false }} />
-        <Stack.Screen name="dashboard" options={{ title: 'Dashboard', headerBackTitle: 'Home' }} />
-        <Stack.Screen name="quant/index" options={{ title: 'Quant', headerBackTitle: 'Home' }} />
+        <Stack.Screen
+          name="dashboard"
+          options={{ title: 'Dashboard', headerBackTitle: 'Drill' }}
+        />
+        <Stack.Screen name="quant/index" options={{ title: 'Learn', headerBackTitle: 'Home' }} />
         <Stack.Screen
           name="quant/practice"
-          options={{ title: 'Practice', headerBackTitle: 'Quant' }}
+          options={{ title: 'Practice', headerBackTitle: 'Learn' }}
         />
         <Stack.Screen
           name="quant/learn/index"
-          options={{ title: 'Learn', headerBackTitle: 'Quant' }}
+          options={{ title: 'Collections', headerBackTitle: 'Learn' }}
         />
         <Stack.Screen
           name="quant/learn/collection/[collectionId]"
@@ -45,7 +52,10 @@ export default function RootLayout() {
           name="quant/learn/example"
           options={{ title: 'Example', headerBackTitle: 'Lesson' }}
         />
-        <Stack.Screen name="quant/session" options={{ title: 'Quant', headerBackTitle: 'Back' }} />
+        <Stack.Screen
+          name="quant/session"
+          options={{ title: 'Practice', headerBackTitle: 'Back' }}
+        />
         <Stack.Screen
           name="quant/review"
           options={{ title: 'Review', headerBackVisible: false }}
