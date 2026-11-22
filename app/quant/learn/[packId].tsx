@@ -29,7 +29,7 @@ export default function QuantLearnLessonScreen() {
     );
   }
 
-  const { lesson, meta, cards } = pack;
+  const { lesson, meta } = pack;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -53,29 +53,6 @@ export default function QuantLearnLessonScreen() {
               </View>
             ))}
           </View>
-
-          {cards.length > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Review ${cards.length} flash cards`}
-              onPress={() =>
-                router.push({
-                  pathname: '/quant/learn/cards',
-                  params: { packId: meta.id },
-                })
-              }
-              style={({ pressed }) => [styles.reviewEntry, pressed && styles.pressed]}
-            >
-              <View style={styles.reviewText}>
-                <Text style={styles.reviewLabel}>Review cards</Text>
-                <Text style={styles.reviewBlurb}>
-                  Flip through {cards.length} {cards.length === 1 ? 'card' : 'cards'} for this
-                  unit
-                </Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ) : null}
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Try these first</Text>
@@ -199,36 +176,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: colors.subtle,
-  },
-  reviewEntry: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  reviewText: {
-    flex: 1,
-    gap: 4,
-  },
-  reviewLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  reviewBlurb: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  chevron: {
-    fontSize: 28,
-    color: colors.muted,
-    lineHeight: 28,
   },
   example: {
     gap: 10,

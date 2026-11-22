@@ -8,7 +8,7 @@ Schema version constant: `CONTENT_PACK_SCHEMA_VERSION` in `types.ts` (currently 
 
 **v3 adds:** nested **collections** tree (unlimited depth). Navigation is **Learn → browse collections → units**, with UI breadcrumbs. Not fixed book/chapter levels.
 
-**v4 adds:** unit-scoped **flash cards** (`id` / `front` / `back`) as a separate `cards[]` list on the pack. Lesson prose stays normal (`intro` / `definitions` / `examples`). Cards are **not** section-linked and do **not** replace the lesson with a deck — they power **Review cards** flip study for that unit only.
+**v4 adds:** unit-scoped **flash cards** (`id` / `front` / `back`) as a separate `cards[]` list on the pack. Cards are data on the unit only — **not** shown in the lesson UI. Lesson = prose + examples + practice. Flip study is a separate **Review cards** entry on the unit list (collection screen).
 
 ## Hierarchy
 
@@ -34,8 +34,8 @@ c-foundations
 | Helpers | `collectionById`, `rootCollections`, `resolveCollectionChildren`, `collectionPath`, `countLeafPacks`, `cardsInPack` |
 | Learn home | `app/quant/learn/index.tsx` |
 | Collection browser | `app/quant/learn/collection/[collectionId].tsx` (breadcrumbs) |
-| Lesson UI | `app/quant/learn/[packId].tsx` (normal lesson + Review cards entry) |
-| Card flip study | `app/quant/learn/cards.tsx` (`packId` only) |
+| Lesson UI | `app/quant/learn/[packId].tsx` (prose + examples + practice only) |
+| Card flip study | `app/quant/learn/cards.tsx` (`packId` only); entry from collection unit list |
 
 ## Collection shape
 
@@ -100,12 +100,12 @@ type ContentPack = {
 
 `GeneratorId` matches shipped Quant Practice skills: `"dice" | "urns" | "ev"`.
 
-## Flash cards (unit-only)
+## Flash cards (unit data only)
 
 | Surface | Behavior |
 |---------|----------|
-| Lesson | Normal intro / definitions / examples — **not** a card deck |
-| Lesson entry | **Review cards** opens flip study when `cards.length > 0` |
+| Lesson | Intro / definitions / examples / Start practice — **no** cards UI |
+| Unit list (collection) | **Review cards · N** under each unit that has `cards.length > 0` |
 | Flip study (`learn/cards?packId=…`) | Front → tap flip → Previous / Next / Done |
 
 Helper: `cardsInPack(pack)` → `pack.cards`.
