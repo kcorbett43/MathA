@@ -2,46 +2,51 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LEARN_PACKS } from '@/content/packs';
-import { formatMixLabel } from '@/lib/learnDrill';
+import { LEARN_MODULES, packsForModule } from '@/content/packs';
 import { colors } from '@/lib/theme';
 
-export default function QuantLearnListScreen() {
+export default function QuantLearnModulesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
           <Text style={styles.title}>Learn</Text>
           <Text style={styles.subtitle}>
-            Lesson first, then a mixed drill. All units are open in v1 — finish in any order.
+            Pick a module, then a unit. Lesson first, then a mixed drill. All units are open in
+            v1 — finish in any order.
           </Text>
         </View>
 
         <View style={styles.list}>
-          {LEARN_PACKS.map((pack) => (
-            <Pressable
-              key={pack.meta.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${pack.meta.title}`}
-              onPress={() =>
-                router.push({
-                  pathname: '/quant/learn/[packId]',
-                  params: { packId: pack.meta.id },
-                })
-              }
-              style={({ pressed }) => [styles.unitRow, pressed && styles.pressed]}
-            >
-              <View style={styles.orderBadge}>
-                <Text style={styles.orderText}>{pack.meta.order}</Text>
-              </View>
-              <View style={styles.unitText}>
-                <Text style={styles.unitLabel}>{pack.meta.title}</Text>
-                <Text style={styles.unitBlurb}>{pack.meta.blurb}</Text>
-                <Text style={styles.unitMeta}>{formatMixLabel(pack)}</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ))}
+          {LEARN_MODULES.map((mod) => {
+            const unitCount = packsForModule(mod.id).length;
+            return (
+              <Pressable
+                key={mod.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open module ${mod.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/quant/learn/module/[moduleId]',
+                    params: { moduleId: mod.id },
+                  })
+                }
+                style={({ pressed }) => [styles.moduleRow, pressed && styles.pressed]}
+              >
+                <View style={styles.orderBadge}>
+                  <Text style={styles.orderText}>{mod.order}</Text>
+                </View>
+                <View style={styles.moduleText}>
+                  <Text style={styles.moduleLabel}>{mod.title}</Text>
+                  <Text style={styles.moduleBlurb}>{mod.blurb}</Text>
+                  <Text style={styles.moduleMeta}>
+                    {unitCount} {unitCount === 1 ? 'unit' : 'units'}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -78,7 +83,7 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
   },
-  unitRow: {
+  moduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -102,21 +107,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  unitText: {
+  moduleText: {
     flex: 1,
     gap: 4,
   },
-  unitLabel: {
+  moduleLabel: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
   },
-  unitBlurb: {
+  moduleBlurb: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
   },
-  unitMeta: {
+  moduleMeta: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,

@@ -4,8 +4,9 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU3Ev: ContentPack = {
   meta: {
     id: 'u3-ev',
-    version: 2,
+    version: 3,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
+    moduleId: 'm1-foundations',
     title: 'Expected value',
     order: 3,
     blurb: 'E[X] definition, linearity, and indicators',

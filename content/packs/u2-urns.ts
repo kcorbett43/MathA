@@ -4,8 +4,9 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU2Urns: ContentPack = {
   meta: {
     id: 'u2-urns',
-    version: 2,
+    version: 3,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
+    moduleId: 'm1-foundations',
     title: 'Urns & conditional',
     order: 2,
     blurb: 'Without replacement and P(2nd | 1st)',

@@ -4,8 +4,9 @@ import { CONTENT_PACK_SCHEMA_VERSION, type ContentPack } from './types';
 export const packU1Dice: ContentPack = {
   meta: {
     id: 'u1-dice',
-    version: 2,
+    version: 3,
     schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
+    moduleId: 'm1-foundations',
     title: 'Counting & dice',
     order: 1,
     blurb: 'Equally likely outcomes and sample-space counting',

@@ -3,14 +3,32 @@ import type { QuantSkillId } from '@/lib/quantTypes';
 /**
  * Bump when the pack JSON/TS shape breaks consumers.
  * v2: pack graph links + named spaced-repetition policies.
+ * v3: modules registry + required `meta.moduleId` (Learn → Modules → Units).
  */
-export const CONTENT_PACK_SCHEMA_VERSION = 2 as const;
+export const CONTENT_PACK_SCHEMA_VERSION = 3 as const;
 
 /** Maps to Quant Practice generators (`lib/generators/quant`). */
 export type GeneratorId = QuantSkillId;
 
 /** Pack id slug, e.g. `u1-dice`. */
 export type PackId = string;
+
+/** Module id slug, e.g. `m1-foundations`. */
+export type ModuleId = string;
+
+/**
+ * A Learn module groups related units (packs).
+ * Navigation: Learn → Modules → Units.
+ */
+export type LearnModule = {
+  id: ModuleId;
+  title: string;
+  blurb: string;
+  /** Display order among modules (1-based). */
+  order: number;
+  /** Pack ids in curriculum order within this module. */
+  unitIds: PackId[];
+};
 
 // ——— Spaced-repetition policies (learner-selectable later) ———
 
@@ -87,11 +105,20 @@ export type PackDefinition = {
   body: string;
 };
 
+/**
+ * Worked example on a unit lesson.
+ * Try-first UX (PR #9): lesson shows title + prompt; `answer`/`steps` reveal
+ * after attempt. Optional `hint` for the attempt screen.
+ */
 export type PackExample = {
   title: string;
   prompt: string;
-  steps: string[];
+  /** Canonical answer (integer or reduced `n/d`) for grading. */
   answer: string;
+  /** Worked solution lines (revealed after attempt / Show solution). */
+  steps: string[];
+  /** Optional hint for try-first attempt UI. */
+  hint?: string;
 };
 
 export type PackLesson = {
@@ -126,8 +153,13 @@ export type PackMeta = {
   /** Content revision (independent of schemaVersion). */
   version: number;
   schemaVersion: typeof CONTENT_PACK_SCHEMA_VERSION;
+  /** Parent Learn module (see `LEARN_MODULES`). */
+  moduleId: ModuleId;
   title: string;
-  /** Display order (1-based). May later be inferred from `links`. */
+  /**
+   * Display order within the module (1-based).
+   * Module membership is authoritative via `LearnModule.unitIds`.
+   */
   order: number;
   blurb: string;
   /** Curriculum edges + prerequisites for order / SR pools / future unlock. */
