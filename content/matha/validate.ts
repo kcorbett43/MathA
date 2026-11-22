@@ -563,13 +563,6 @@ function parseReviewSource(
         });
       }
     }
-    issues.push({
-      level: 'warning',
-      code: 'review.cloze.identity',
-      message:
-        'Cloze card ids are stable identities — bump card id if cloze meaning changes; text/position edits alone do not rename progress',
-      path,
-    });
   }
 
   if (cards.length === 0 && kind !== 'basic' && kind !== 'cloze' && kind !== 'reversible') {
