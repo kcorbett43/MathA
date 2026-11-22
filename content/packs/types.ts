@@ -87,11 +87,21 @@ export type PackDefinition = {
   body: string;
 };
 
+/**
+ * Try-first worked example. Lesson UI shows title + prompt only; the learner
+ * attempts with the Quant pad (Scratch / Hint / Submit / Show solution).
+ * `steps` + `answer` are revealed after submit or Show solution — never dumped
+ * on the lesson screen before an attempt.
+ */
 export type PackExample = {
   title: string;
   prompt: string;
-  steps: string[];
+  /** Canonical answer string (integer or reduced `n/d`) for grading via `answersMatch`. */
   answer: string;
+  /** Worked solution lines shown only after reveal. */
+  steps: string[];
+  /** Optional hint shown from the example attempt UI (same as Practice). */
+  hint?: string;
 };
 
 export type PackLesson = {
