@@ -3,8 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ContentMarkdown } from '@/components/ContentMarkdown';
 import { cardsInPack, packById } from '@/content/packs';
 import { SHIPPED_PACKAGE_ID } from '@/content/store';
+import { assetUrisForPack } from '@/lib/content/assetUris';
 import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import {
   CARD_RATING_LABELS,
@@ -31,6 +33,7 @@ export default function LearnCardsReviewScreen() {
   const pack = useMemo(() => packById(packId), [packId, snapshot]);
   const cards = useMemo(() => (pack ? cardsInPack(pack) : []), [pack]);
   const packageId = pack?.meta.packageId ?? SHIPPED_PACKAGE_ID;
+  const assetUris = useMemo(() => (pack ? assetUrisForPack(pack) : undefined), [pack]);
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -134,7 +137,11 @@ export default function LearnCardsReviewScreen() {
           style={({ pressed }) => [styles.card, pressed && styles.pressed]}
         >
           <Text style={styles.sideLabel}>{flipped ? 'Back' : 'Front'}</Text>
-          <Text style={styles.cardText}>{flipped ? card.back : card.front}</Text>
+          <ContentMarkdown
+            text={flipped ? card.back : card.front}
+            assetUris={assetUris}
+            style={styles.cardText}
+          />
           <Text style={styles.tapHint}>
             {flipped ? 'How well did you know it?' : 'Tap to flip'}
           </Text>
