@@ -217,9 +217,12 @@ export default function QuantLearnExampleScreen() {
                 <View style={styles.revealBlock}>
                   <Text style={styles.stepsLabel}>Solution</Text>
                   {example.steps.map((step, si) => (
-                    <Text key={si} style={styles.step}>
-                      {si + 1}. {step}
-                    </Text>
+                    <View key={si} style={styles.stepRow}>
+                      <Text style={styles.stepIndex}>{si + 1}.</Text>
+                      <View style={styles.stepBody}>
+                        <ContentMarkdown text={step} assetUris={assetUris} style={styles.step} />
+                      </View>
+                    </View>
                   ))}
                 </View>
               ) : null}
@@ -235,7 +238,7 @@ export default function QuantLearnExampleScreen() {
                 />
               ) : null}
               {hintVisible && example.hint ? (
-                <Text style={styles.hintText}>{example.hint}</Text>
+                <ContentMarkdown text={example.hint} assetUris={assetUris} style={styles.hintText} />
               ) : null}
             </>
           ) : (
@@ -275,9 +278,12 @@ export default function QuantLearnExampleScreen() {
               <View style={styles.steps}>
                 <Text style={styles.stepsLabel}>Worked steps</Text>
                 {example.steps.map((step, si) => (
-                  <Text key={si} style={styles.step}>
-                    {si + 1}. {step}
-                  </Text>
+                  <View key={si} style={styles.stepRow}>
+                    <Text style={styles.stepIndex}>{si + 1}.</Text>
+                    <View style={styles.stepBody}>
+                      <ContentMarkdown text={step} assetUris={assetUris} style={styles.step} />
+                    </View>
+                  </View>
                 ))}
               </View>
             </View>
@@ -482,6 +488,9 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textTransform: 'uppercase',
   },
+  stepRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
+  stepIndex: { fontSize: 15, lineHeight: 22, color: colors.subtle, fontWeight: '600' },
+  stepBody: { flex: 1 },
   step: { fontSize: 15, lineHeight: 22, color: colors.subtle },
   scratchHost: { flex: 1, minHeight: 160 },
   scratchHostHidden: { height: 0, overflow: 'hidden' },

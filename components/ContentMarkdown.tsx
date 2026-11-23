@@ -1,6 +1,8 @@
 import { Image, StyleSheet, Text, View, type TextStyle } from 'react-native';
 
+import { KatexBlock } from '@/components/KatexBlock';
 import { resolveAssetUri, type AssetUriMap } from '@/content/store/assets';
+import { containsMathDelimiters } from '@/lib/katexHtml';
 import { colors } from '@/lib/theme';
 
 type Segment =
@@ -36,8 +38,9 @@ type Props = {
 
 /**
  * Constrained Markdown renderer for learner-facing strings.
- * v1: paragraphs + Markdown images with package-root-relative asset resolution.
- * Math/audio remain as text until dedicated renderers land.
+ * Supports paragraphs, Markdown images (package-root-relative), and
+ * KaTeX math via `$…$` / `$$…$$` (WebView; Expo Go compatible).
+ * Math render failures fall back to the raw TeX source.
  */
 export function ContentMarkdown({ text, assetUris, style }: Props) {
   if (!text) return null;
@@ -49,6 +52,9 @@ export function ContentMarkdown({ text, assetUris, style }: Props) {
         if (seg.kind === 'text') {
           const trimmed = seg.value.replace(/^\n+|\n+$/g, '');
           if (!trimmed) return null;
+          if (containsMathDelimiters(trimmed)) {
+            return <KatexBlock key={`m-${i}`} text={trimmed} style={[styles.text, style]} />;
+          }
           return (
             <Text key={`t-${i}`} style={[styles.text, style]}>
               {trimmed}
@@ -58,7 +64,7 @@ export function ContentMarkdown({ text, assetUris, style }: Props) {
         const uri = resolveAssetUri(assetUris, seg.src);
         if (!uri) {
           return (
-            <Text key={`m-${i}`} style={[styles.missing, style]}>
+            <Text key={`img-miss-${i}`} style={[styles.missing, style]}>
               [missing image: {seg.src}]
             </Text>
           );

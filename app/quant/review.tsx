@@ -3,7 +3,9 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ContentMarkdown } from '@/components/ContentMarkdown';
 import { packById } from '@/content/packs';
+import { assetUrisForPack } from '@/lib/content/assetUris';
 import { getQuantReview } from '@/lib/quantSessionStore';
 import {
   quantSkillById,
@@ -30,6 +32,7 @@ export default function QuantReviewScreen() {
   const payload = useMemo(() => getQuantReview(), []);
   const packId = payload?.packId ?? packIdParam;
   const pack = packById(packId);
+  const assetUris = useMemo(() => (pack ? assetUrisForPack(pack) : undefined), [pack]);
 
   const items: QuantReviewItem[] = payload?.items ?? [];
   const skill = quantSkillById(payload?.skillId ?? skillId);
@@ -69,7 +72,7 @@ export default function QuantReviewScreen() {
                     {item.correct ? 'Correct' : 'Wrong'}
                   </Text>
                 </View>
-                <Text style={styles.prompt}>{item.prompt}</Text>
+                <ContentMarkdown text={item.prompt} assetUris={assetUris} style={styles.prompt} />
                 <Text style={styles.answerLine}>
                   Your answer:{' '}
                   <Text style={styles.answerValue}>{item.userAnswer || '—'}</Text>
