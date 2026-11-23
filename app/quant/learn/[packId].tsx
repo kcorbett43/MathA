@@ -4,12 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentMarkdown } from '@/components/ContentMarkdown';
-import {
-  cardsInPack,
-  getLesson,
-  getPractice,
-  packById,
-} from '@/content/packs';
+import { getLesson, getPractice, packById } from '@/content/packs';
 import { assetUrisForPack } from '@/lib/content/assetUris';
 import { useContentStore } from '@/lib/content/ContentStoreProvider';
 import { formatMixLabel } from '@/lib/learnDrill';
@@ -40,7 +35,6 @@ export default function QuantLearnLessonScreen() {
 
   const lesson = getLesson(pack);
   const practice = getPractice(pack);
-  const cardCount = cardsInPack(pack).length;
   const assetUris = assetUrisForPack(pack);
   const { meta } = pack;
   const examples = lesson?.examples ?? [];
@@ -61,7 +55,8 @@ export default function QuantLearnLessonScreen() {
             ) : null}
             {!lesson ? (
               <Text style={styles.lead}>
-                This unit has no lesson — use Practice or Review cards below.
+                This unit has no lesson — open Practice from here, or Review
+                cards from the collection list.
               </Text>
             ) : null}
           </View>
@@ -111,22 +106,6 @@ export default function QuantLearnLessonScreen() {
                 </View>
               ))}
             </View>
-          ) : null}
-
-          {cardCount > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Review ${cardCount} cards`}
-              onPress={() =>
-                router.push({
-                  pathname: '/quant/learn/cards',
-                  params: { packId: meta.id },
-                })
-              }
-              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-            >
-              <Text style={styles.secondaryText}>Review cards · {cardCount}</Text>
-            </Pressable>
           ) : null}
 
           {practice ? <Text style={styles.mixNote}>{formatMixLabel(pack)}</Text> : null}
@@ -258,16 +237,6 @@ const styles = StyleSheet.create({
   },
   mixNote: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  secondary: {
-    alignSelf: 'flex-start',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  secondaryText: {
-    fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
   },

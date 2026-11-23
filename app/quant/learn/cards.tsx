@@ -1,28 +1,81 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { cardsInPack, packById } from '@/content/packs';
+import { SHIPPED_PACKAGE_ID } from '@/content/store';
 import { useContentStore } from '@/lib/content/ContentStoreProvider';
+import {
+  CARD_RATING_LABELS,
+  CARD_RATINGS,
+  type CardRating,
+} from '@/lib/reviewProgress';
 import { colors } from '@/lib/theme';
 
 function paramString(raw: string | string[] | undefined): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
+const RATING_COLORS: Record<CardRating, string> = {
+  again: colors.danger,
+  hard: '#B45309',
+  good: colors.primary,
+  easy: colors.success,
+};
+
 export default function LearnCardsReviewScreen() {
-  const { snapshot } = useContentStore();
+  const { snapshot, recordCardRating } = useContentStore();
   const params = useLocalSearchParams<{ packId?: string }>();
   const packId = paramString(params.packId);
   const pack = useMemo(() => packById(packId), [packId, snapshot]);
   const cards = useMemo(() => (pack ? cardsInPack(pack) : []), [pack]);
+  const packageId = pack?.meta.packageId ?? SHIPPED_PACKAGE_ID;
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const safeIndex = cards.length === 0 ? 0 : Math.min(index, cards.length - 1);
   const card = cards[safeIndex];
+  const isLast = safeIndex >= cards.length - 1;
+
+  const goTo = useCallback((next: number) => {
+    setIndex(next);
+    setFlipped(false);
+  }, []);
+
+  const rateAndAdvance = useCallback(
+    async (rating: CardRating) => {
+      if (!pack || !card || saving) return;
+      setSaving(true);
+      try {
+        await recordCardRating({
+          packageId,
+          unitId: pack.meta.id,
+          cardId: card.id,
+          rating,
+        });
+        if (isLast) {
+          router.back();
+        } else {
+          goTo(safeIndex + 1);
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      pack,
+      card,
+      saving,
+      recordCardRating,
+      packageId,
+      isLast,
+      goTo,
+      safeIndex,
+    ],
+  );
 
   if (!pack) {
     return (
@@ -59,11 +112,6 @@ export default function LearnCardsReviewScreen() {
     );
   }
 
-  const goTo = (next: number) => {
-    setIndex(next);
-    setFlipped(false);
-  };
-
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={styles.shell}>
@@ -87,43 +135,60 @@ export default function LearnCardsReviewScreen() {
         >
           <Text style={styles.sideLabel}>{flipped ? 'Back' : 'Front'}</Text>
           <Text style={styles.cardText}>{flipped ? card.back : card.front}</Text>
-          <Text style={styles.tapHint}>{flipped ? 'Tap to hide' : 'Tap to flip'}</Text>
+          <Text style={styles.tapHint}>
+            {flipped ? 'How well did you know it?' : 'Tap to flip'}
+          </Text>
         </Pressable>
 
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Previous card"
-            disabled={safeIndex === 0}
-            onPress={() => goTo(safeIndex - 1)}
-            style={({ pressed }) => [
-              styles.secondary,
-              safeIndex === 0 && styles.disabled,
-              pressed && safeIndex > 0 && styles.pressed,
-            ]}
-          >
-            <Text style={styles.secondaryText}>Previous</Text>
-          </Pressable>
-          {safeIndex < cards.length - 1 ? (
+        {flipped ? (
+          <View style={styles.ratingRow}>
+            {CARD_RATINGS.map((rating) => (
+              <Pressable
+                key={rating}
+                accessibilityRole="button"
+                accessibilityLabel={`Rate ${CARD_RATING_LABELS[rating]}`}
+                disabled={saving}
+                onPress={() => void rateAndAdvance(rating)}
+                style={({ pressed }) => [
+                  styles.ratingBtn,
+                  { borderColor: RATING_COLORS[rating] },
+                  saving && styles.disabled,
+                  pressed && !saving && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[styles.ratingText, { color: RATING_COLORS[rating] }]}
+                >
+                  {CARD_RATING_LABELS[rating]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.footer}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Next card"
-              onPress={() => goTo(safeIndex + 1)}
-              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+              accessibilityLabel="Previous card"
+              disabled={safeIndex === 0}
+              onPress={() => goTo(safeIndex - 1)}
+              style={({ pressed }) => [
+                styles.secondary,
+                safeIndex === 0 && styles.disabled,
+                pressed && safeIndex > 0 && styles.pressed,
+              ]}
             >
-              <Text style={styles.primaryText}>Next</Text>
+              <Text style={styles.secondaryText}>Previous</Text>
             </Pressable>
-          ) : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Done reviewing cards"
-              onPress={() => router.back()}
+              accessibilityLabel="Flip card to rate"
+              onPress={() => setFlipped(true)}
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
             >
-              <Text style={styles.primaryText}>Done</Text>
+              <Text style={styles.primaryText}>Flip</Text>
             </Pressable>
-          )}
-        </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -206,6 +271,24 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: 12,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ratingBtn: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   primary: {
     flex: 1,
