@@ -40,7 +40,30 @@ Generators are MathA-authored procedural templates (schemas inspired by public M
 - Phone with [Expo Go](https://expo.dev/go) (iOS App Store or Google Play)
 - Same Wi‑Fi as your computer, or use tunnel mode
 
-## Run with Expo Go
+## Persistent preview (Expo Go + web)
+
+No local Metro needed for review. Project: [expo.dev/@kc432/matha](https://expo.dev/accounts/kc432/projects/matha).
+
+| Surface | Stable URL |
+|---------|------------|
+| **Expo Go** (phone) | `exp://u.expo.dev/545e69a7-5bad-4e33-a3c0-a8fd883ed1a7?runtime-version=exposdk%3A58.0.0&channel-name=preview` |
+| **QR** (same channel) | [qr.expo.dev … channel=preview](https://qr.expo.dev/eas-update?projectId=545e69a7-5bad-4e33-a3c0-a8fd883ed1a7&runtimeVersion=exposdk:58.0.0&channel=preview) |
+| **Web** | [https://matha.expo.app](https://matha.expo.app) |
+
+Open the `exp://` link or QR in **Expo Go** (SDK 58). Or open the [latest update](https://expo.dev/accounts/kc432/projects/matha/updates) on the Expo dashboard → **Preview**.
+
+### Republish after merges to `main`
+
+```bash
+git checkout main && git pull
+npm install   # if lockfile changed
+npm run update:preview    # Expo Go channel
+npm run deploy:web        # https://matha.expo.app
+```
+
+Requires `EXPO_TOKEN` (or `eas login`). `update:preview` publishes JS/assets to the `preview` channel; the Expo Go URL above stays the same and always loads the latest update on that channel.
+
+## Run with Expo Go (local / tunnel)
 
 ```bash
 git clone https://github.com/kcorbett43/MathA.git
@@ -59,7 +82,7 @@ Then:
 npx expo start --tunnel
 ```
 
-Optional web preview (layout differs from phone):
+Optional local web preview (layout differs from phone):
 
 ```bash
 npx expo start --web

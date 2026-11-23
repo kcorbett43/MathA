@@ -14,6 +14,7 @@
     "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "expo-symbols": "~58.0.5",
+    "expo-updates": "~58.0.22",
     "expo-web-browser": "~58.1.0",
     "fflate": "^0.8.3",
     "react": "19.3.0",
@@ -45,7 +46,9 @@
     "build:matha": "tsx scripts/build-matha-examples.ts",
     "test:matha": "tsx scripts/test-matha-import.ts",
     "test:review": "tsx scripts/test-review-progress.ts",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "update:preview": "npx eas-cli@latest update --channel preview --environment preview --message \"preview $(git rev-parse --short HEAD)\" --non-interactive",
+    "deploy:web": "npx expo export --platform web && npx eas-cli@latest deploy --prod --non-interactive"
   },
   "private": true
 }
