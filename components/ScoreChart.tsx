@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
-import { dayKey } from '@/lib/storage';
 import { colors } from '@/lib/theme';
-import type { SessionScore } from '@/lib/types';
+import { durationLabel, type DurationMinutes, type SessionScore } from '@/lib/types';
 
 type ScoreChartProps = {
   scores: SessionScore[];
@@ -11,22 +10,30 @@ type ScoreChartProps = {
 
 type Point = { x: number; y: number; score: number; id: string };
 
+function durationAxisLabel(minutes: number): string {
+  return durationLabel(minutes as DurationMinutes);
+}
+
 /**
- * Chess.com-style Elo chart: continuous score-over-time line.
+ * Chess.com-style Elo chart: score vs drill duration.
  * Drawn with plain RN Views (no react-native-svg) so Expo Go never hits
  * "Unable to resolve module react-native-svg".
  *
- * Sessions are chronological; X is calendar-day spaced (multiple sessions
- * on the same day are slightly staggered).
+ * X is session duration (30 sec, 1 min, 2 min, …) so scores spread across
+ * drill lengths instead of stacking on a single calendar-day bucket.
  */
 export function ScoreChart({ scores }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
 
+  // Chronological within each duration keeps same-length sessions ordered;
+  // overall sort by duration so the line reads left→right by drill length.
   const sorted = useMemo(
     () =>
-      [...scores].sort(
-        (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime(),
-      ),
+      [...scores].sort((a, b) => {
+        const d = a.durationMinutes - b.durationMinutes;
+        if (d !== 0) return d;
+        return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
+      }),
     [scores],
   );
 
@@ -36,24 +43,26 @@ export function ScoreChart({ scores }: ScoreChartProps) {
   const padT = 16;
   const padB = 16;
 
-  const { points, yTop, yBot, dayLabels, segments } = useMemo(() => {
+  const { points, yTop, yBot, xLabels, segments } = useMemo(() => {
     if (sorted.length === 0 || width <= 0) {
       return {
         points: [] as Point[],
         yTop: 1,
         yBot: 0,
-        dayLabels: [] as string[],
+        xLabels: [] as string[],
         segments: [] as { key: string; left: number; top: number; width: number; angle: number }[],
       };
     }
 
-    const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
-    const byDay = new Map<string, SessionScore[]>();
+    const uniqueDurations = Array.from(
+      new Set(sorted.map((s) => s.durationMinutes)),
+    ).sort((a, b) => a - b);
+
+    const byDuration = new Map<number, SessionScore[]>();
     for (const s of sorted) {
-      const k = dayKey(s.completedAt);
-      const list = byDay.get(k) ?? [];
+      const list = byDuration.get(s.durationMinutes) ?? [];
       list.push(s);
-      byDay.set(k, list);
+      byDuration.set(s.durationMinutes, list);
     }
 
     const scoresOnly = sorted.map((s) => s.score);
@@ -65,22 +74,24 @@ export function ScoreChart({ scores }: ScoreChartProps) {
 
     const plotW = Math.max(width - padL - padR, 1);
     const plotH = chartH - padT - padB;
-    const dayCount = uniqueDays.length;
+    const durationCount = uniqueDurations.length;
 
     const pts: Point[] = [];
-    for (let di = 0; di < dayCount; di++) {
-      const day = uniqueDays[di];
-      const daySessions = byDay.get(day) ?? [];
-      const dayX =
-        dayCount === 1 ? padL + plotW / 2 : padL + (di / (dayCount - 1)) * plotW;
+    for (let di = 0; di < durationCount; di++) {
+      const duration = uniqueDurations[di];
+      const durationSessions = byDuration.get(duration) ?? [];
+      const durationX =
+        durationCount === 1
+          ? padL + plotW / 2
+          : padL + (di / (durationCount - 1)) * plotW;
 
-      daySessions.forEach((s, si) => {
+      durationSessions.forEach((s, si) => {
         const stagger =
-          daySessions.length === 1
+          durationSessions.length === 1
             ? 0
-            : ((si / (daySessions.length - 1)) - 0.5) *
-              Math.min(18, (plotW / Math.max(dayCount, 1)) * 0.35);
-        const x = dayX + stagger;
+            : ((si / (durationSessions.length - 1)) - 0.5) *
+              Math.min(18, (plotW / Math.max(durationCount, 1)) * 0.35);
+        const x = durationX + stagger;
         const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
         pts.push({ x, y, score: s.score, id: s.id });
       });
@@ -106,15 +117,18 @@ export function ScoreChart({ scores }: ScoreChartProps) {
     }
 
     const labels =
-      uniqueDays.length <= 1
-        ? uniqueDays
-        : [uniqueDays[0], uniqueDays[uniqueDays.length - 1]];
+      uniqueDurations.length <= 1
+        ? uniqueDurations.map(durationAxisLabel)
+        : [
+            durationAxisLabel(uniqueDurations[0]),
+            durationAxisLabel(uniqueDurations[uniqueDurations.length - 1]),
+          ];
 
     return {
       points: pts,
       yTop: Math.round(yMax),
       yBot: Math.round(yMin),
-      dayLabels: labels,
+      xLabels: labels,
       segments: segs,
     };
   }, [sorted, width]);
@@ -166,15 +180,15 @@ export function ScoreChart({ scores }: ScoreChartProps) {
             ))}
           </View>
           <View style={styles.axisX}>
-            <Text style={styles.axisLabel}>{dayLabels[0] ?? ''}</Text>
-            {dayLabels.length > 1 ? (
-              <Text style={styles.axisLabel}>{dayLabels[dayLabels.length - 1]}</Text>
+            <Text style={styles.axisLabel}>{xLabels[0] ?? ''}</Text>
+            {xLabels.length > 1 ? (
+              <Text style={styles.axisLabel}>{xLabels[xLabels.length - 1]}</Text>
             ) : null}
           </View>
         </View>
       </View>
       <Text style={styles.caption}>
-        {sorted.length} session{sorted.length === 1 ? '' : 's'} · score over time
+        {sorted.length} session{sorted.length === 1 ? '' : 's'} · score by duration
       </Text>
     </View>
   );
