@@ -3,23 +3,35 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
 import { dayKey } from '@/lib/storage';
 import { colors } from '@/lib/theme';
-import type { SessionScore } from '@/lib/types';
+import type { SessionScore, TimeRange } from '@/lib/types';
 
 type ScoreChartProps = {
   scores: SessionScore[];
+  /** Dashboard time range — Day plots/labels by clock time. */
+  range: TimeRange;
 };
 
 type Point = { x: number; y: number; score: number; id: string };
+
+/** Local time-of-day label, e.g. "2:15 PM". */
+function formatTimeOfDay(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 /**
  * Chess.com-style Elo chart: continuous score-over-time line.
  * Drawn with plain RN Views (no react-native-svg) so Expo Go never hits
  * "Unable to resolve module react-native-svg".
  *
- * Sessions are chronological; X is calendar-day spaced (multiple sessions
- * on the same day are slightly staggered).
+ * Callers must filter to a single drill duration (scores aren't comparable
+ * across lengths). Day range spaces points by actual timestamp with
+ * time-of-day axis labels; longer ranges space by calendar day.
  */
-export function ScoreChart({ scores }: ScoreChartProps) {
+export function ScoreChart({ scores, range }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
 
   const sorted = useMemo(
@@ -36,25 +48,18 @@ export function ScoreChart({ scores }: ScoreChartProps) {
   const padT = 16;
   const padB = 16;
 
-  const { points, yTop, yBot, dayLabels, segments } = useMemo(() => {
+  const { points, yTop, yBot, xLabels, segments } = useMemo(() => {
     if (sorted.length === 0 || width <= 0) {
       return {
         points: [] as Point[],
         yTop: 1,
         yBot: 0,
-        dayLabels: [] as string[],
+        xLabels: [] as string[],
         segments: [] as { key: string; left: number; top: number; width: number; angle: number }[],
       };
     }
 
-    const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
-    const byDay = new Map<string, SessionScore[]>();
-    for (const s of sorted) {
-      const k = dayKey(s.completedAt);
-      const list = byDay.get(k) ?? [];
-      list.push(s);
-      byDay.set(k, list);
-    }
+    const useTimeAxis = range === 'day';
 
     const scoresOnly = sorted.map((s) => s.score);
     const maxS = Math.max(...scoresOnly, 1);
@@ -65,25 +70,54 @@ export function ScoreChart({ scores }: ScoreChartProps) {
 
     const plotW = Math.max(width - padL - padR, 1);
     const plotH = chartH - padT - padB;
-    const dayCount = uniqueDays.length;
 
     const pts: Point[] = [];
-    for (let di = 0; di < dayCount; di++) {
-      const day = uniqueDays[di];
-      const daySessions = byDay.get(day) ?? [];
-      const dayX =
-        dayCount === 1 ? padL + plotW / 2 : padL + (di / (dayCount - 1)) * plotW;
 
-      daySessions.forEach((s, si) => {
-        const stagger =
-          daySessions.length === 1
-            ? 0
-            : ((si / (daySessions.length - 1)) - 0.5) *
-              Math.min(18, (plotW / Math.max(dayCount, 1)) * 0.35);
-        const x = dayX + stagger;
+    if (useTimeAxis) {
+      const times = sorted.map((s) => new Date(s.completedAt).getTime());
+      const tMin = times[0];
+      const tMax = times[times.length - 1];
+      const tSpan = tMax - tMin;
+
+      sorted.forEach((s, i) => {
+        const t = times[i];
+        const x =
+          sorted.length === 1 || tSpan <= 0
+            ? padL + plotW / 2
+            : padL + ((t - tMin) / tSpan) * plotW;
         const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
         pts.push({ x, y, score: s.score, id: s.id });
       });
+    } else {
+      const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
+      const byDay = new Map<string, SessionScore[]>();
+      for (const s of sorted) {
+        const k = dayKey(s.completedAt);
+        const list = byDay.get(k) ?? [];
+        list.push(s);
+        byDay.set(k, list);
+      }
+
+      const dayCount = uniqueDays.length;
+      for (let di = 0; di < dayCount; di++) {
+        const day = uniqueDays[di];
+        const daySessions = byDay.get(day) ?? [];
+        const dayX =
+          dayCount === 1 ? padL + plotW / 2 : padL + (di / (dayCount - 1)) * plotW;
+
+        daySessions.forEach((s, si) => {
+          // Same calendar day on Week+ still gets a light stagger so segments
+          // aren't zero-length; Day uses true timestamps above instead.
+          const stagger =
+            daySessions.length === 1
+              ? 0
+              : ((si / (daySessions.length - 1)) - 0.5) *
+                Math.min(18, (plotW / Math.max(dayCount, 1)) * 0.35);
+          const x = dayX + stagger;
+          const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
+          pts.push({ x, y, score: s.score, id: s.id });
+        });
+      }
     }
 
     const segs: { key: string; left: number; top: number; width: number; angle: number }[] = [];
@@ -105,19 +139,27 @@ export function ScoreChart({ scores }: ScoreChartProps) {
       });
     }
 
-    const labels =
-      uniqueDays.length <= 1
-        ? uniqueDays
-        : [uniqueDays[0], uniqueDays[uniqueDays.length - 1]];
+    let labels: string[];
+    if (useTimeAxis) {
+      const first = formatTimeOfDay(sorted[0].completedAt);
+      const last = formatTimeOfDay(sorted[sorted.length - 1].completedAt);
+      labels = first === last ? [first] : [first, last];
+    } else {
+      const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
+      labels =
+        uniqueDays.length <= 1
+          ? uniqueDays
+          : [uniqueDays[0], uniqueDays[uniqueDays.length - 1]];
+    }
 
     return {
       points: pts,
       yTop: Math.round(yMax),
       yBot: Math.round(yMin),
-      dayLabels: labels,
+      xLabels: labels,
       segments: segs,
     };
-  }, [sorted, width]);
+  }, [sorted, width, range]);
 
   if (scores.length === 0) {
     return (
@@ -166,9 +208,9 @@ export function ScoreChart({ scores }: ScoreChartProps) {
             ))}
           </View>
           <View style={styles.axisX}>
-            <Text style={styles.axisLabel}>{dayLabels[0] ?? ''}</Text>
-            {dayLabels.length > 1 ? (
-              <Text style={styles.axisLabel}>{dayLabels[dayLabels.length - 1]}</Text>
+            <Text style={styles.axisLabel}>{xLabels[0] ?? ''}</Text>
+            {xLabels.length > 1 ? (
+              <Text style={styles.axisLabel}>{xLabels[xLabels.length - 1]}</Text>
             ) : null}
           </View>
         </View>
