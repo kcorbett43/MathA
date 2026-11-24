@@ -6,15 +6,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChipRow } from '@/components/ChipRow';
 import { colors } from '@/lib/theme';
 import {
+  DEFAULT_DURATION_MINUTES,
   DURATIONS,
   MODES,
+  durationLabel,
   type DurationMinutes,
   type GameMode,
 } from '@/lib/types';
 
 export default function DrillHomeScreen() {
   const [mode, setMode] = useState<GameMode>('arithmetic');
-  const [duration, setDuration] = useState<DurationMinutes>(2);
+  const [duration, setDuration] = useState<DurationMinutes>(DEFAULT_DURATION_MINUTES);
 
   const selectedBlurb = MODES.find((m) => m.id === mode)?.blurb ?? '';
 
@@ -43,7 +45,7 @@ export default function DrillHomeScreen() {
           <Text style={styles.sectionLabel}>Duration</Text>
           <ChipRow
             accessibilityPrefix="Duration"
-            chips={DURATIONS.map((d) => ({ id: d, label: `${d} min` }))}
+            chips={DURATIONS.map((d) => ({ id: d, label: durationLabel(d) }))}
             selected={duration}
             onSelect={setDuration}
           />

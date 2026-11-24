@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadScores, saveScore } from '@/lib/storage';
 import { colors } from '@/lib/theme';
 import {
+  durationLabel,
   modeLabel,
-  type DurationMinutes,
+  parseDurationMinutes,
   type GameMode,
 } from '@/lib/types';
 
@@ -28,12 +29,6 @@ function parseMode(raw: string | string[] | undefined): GameMode {
   return 'arithmetic';
 }
 
-function parseDuration(raw: string | string[] | undefined): DurationMinutes {
-  const n = asNumber(raw);
-  if (n === 1 || n === 2 || n === 3 || n === 4 || n === 5) return n;
-  return 2;
-}
-
 export default function ResultsScreen() {
   const params = useLocalSearchParams<{
     correct?: string;
@@ -45,7 +40,7 @@ export default function ResultsScreen() {
 
   const correct = asNumber(params.correct);
   const attempted = asNumber(params.attempted);
-  const durationMinutes = parseDuration(params.duration);
+  const durationMinutes = parseDurationMinutes(params.duration);
   const mode = parseMode(params.mode);
   const sessionId = asString(params.sessionId) || `fallback-${correct}-${attempted}-${mode}`;
   const savedRef = useRef(false);
@@ -73,7 +68,7 @@ export default function ResultsScreen() {
         <View style={styles.summary}>
           <Text style={styles.title}>Session complete</Text>
           <Text style={styles.subtitle}>
-            {modeLabel(mode)} · {durationMinutes} min
+            {modeLabel(mode)} · {durationLabel(durationMinutes)}
           </Text>
 
           <View style={styles.scoreBlock}>

@@ -10,7 +10,7 @@ Timed mental-math drills for iOS (and Android) via **Expo Go**. No Mac or Xcode 
 | **Arithmetic Pro** | Parentheses / order of operations |
 | **Sequence** | Next term in a 5-number pattern |
 
-Durations for every mode: **1 / 2 / 3 / 4 / 5 minutes**.
+Durations for every mode: **30 seconds / 1 / 2 / 3 / 4 / 5 minutes**.
 
 Score = **raw correct count**. As soon as the typed answer matches, score increments and the next question appears (OpenQuant-style). Wrong digits stay until corrected — no Submit or skip button.
 

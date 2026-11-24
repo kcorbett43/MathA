@@ -10,7 +10,7 @@ import { generateQuestion } from '@/lib/generators';
 import { colors } from '@/lib/theme';
 import {
   modeLabel,
-  type DurationMinutes,
+  parseDurationMinutes,
   type GameMode,
   type Question,
 } from '@/lib/types';
@@ -23,13 +23,6 @@ function parseMode(raw: string | string[] | undefined): GameMode {
   return 'arithmetic';
 }
 
-function parseDuration(raw: string | string[] | undefined): DurationMinutes {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  const n = Number.parseInt(value ?? '2', 10);
-  if (n === 1 || n === 2 || n === 3 || n === 4 || n === 5) return n;
-  return 2;
-}
-
 const MAX_ANSWER_LEN = 10;
 
 type Phase = 'countdown' | 'playing';
@@ -38,7 +31,7 @@ export default function DrillScreen() {
   const params = useLocalSearchParams<{ mode?: string; duration?: string }>();
   const mode = useMemo(() => parseMode(params.mode), [params.mode]);
   const durationMinutes = useMemo(
-    () => parseDuration(params.duration),
+    () => parseDurationMinutes(params.duration),
     [params.duration],
   );
   const totalSeconds = durationMinutes * 60;
