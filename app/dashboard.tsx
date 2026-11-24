@@ -15,13 +15,23 @@ import { ScoreChart } from '@/components/ScoreChart';
 import { dayKey, filterScores, loadScores } from '@/lib/storage';
 import { colors } from '@/lib/theme';
 import {
+  DURATIONS,
   MODES,
   TIME_RANGES,
+  durationLabel,
   modeLabel,
+  type DurationMinutes,
   type GameMode,
   type SessionScore,
   type TimeRange,
 } from '@/lib/types';
+
+function sessionDurationLabel(durationMinutes: number): string {
+  if ((DURATIONS as number[]).includes(durationMinutes)) {
+    return durationLabel(durationMinutes as DurationMinutes);
+  }
+  return `${durationMinutes} min`;
+}
 
 export default function DashboardScreen() {
   const [mode, setMode] = useState<GameMode>('arithmetic');
@@ -92,7 +102,7 @@ export default function DashboardScreen() {
                   <View style={styles.rowMain}>
                     <Text style={styles.rowScore}>{s.score}</Text>
                     <Text style={styles.rowMeta}>
-                      {dayKey(s.completedAt)} · {s.durationMinutes} min
+                      {dayKey(s.completedAt)} · {sessionDurationLabel(s.durationMinutes)}
                     </Text>
                   </View>
                   <Text style={styles.rowAttempted}>{s.score} correct</Text>
