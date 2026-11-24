@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { dayKey } from '@/lib/storage';
 import { colors } from '@/lib/theme';
@@ -7,11 +7,11 @@ import type { SessionScore, TimeRange } from '@/lib/types';
 
 type ScoreChartProps = {
   scores: SessionScore[];
-  /** Dashboard time range — Day plots/labels by clock time. */
+  /** Dashboard time range — Day prefers time-of-day axis labels. */
   range: TimeRange;
 };
 
-type Point = { x: number; y: number; score: number; id: string };
+type Point = { x: number; y: number; score: number; id: string; completedAt: string };
 
 /** Local time-of-day label, e.g. "2:15 PM". */
 function formatTimeOfDay(iso: string): string {
@@ -28,11 +28,13 @@ function formatTimeOfDay(iso: string): string {
  * "Unable to resolve module react-native-svg".
  *
  * Callers must filter to a single drill duration (scores aren't comparable
- * across lengths). Day range spaces points by actual timestamp with
- * time-of-day axis labels; longer ranges space by calendar day.
+ * across lengths). Every session gets its own x from completedAt (session
+ * index if timestamps collide) so same-day drills spread across the plot —
+ * never collapsed into a calendar-day bucket. Tap a point to see its score.
  */
 export function ScoreChart({ scores, range }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const sorted = useMemo(
     () =>
@@ -42,11 +44,18 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     [scores],
   );
 
+  useEffect(() => {
+    setSelectedId(null);
+  }, [scores, range]);
+
   const chartH = 200;
   const padL = 8;
   const padR = 12;
   const padT = 16;
   const padB = 16;
+  const hit = 24;
+  const calloutW = 44;
+  const calloutH = 24;
 
   const { points, yTop, yBot, xLabels, segments } = useMemo(() => {
     if (sorted.length === 0 || width <= 0) {
@@ -59,8 +68,6 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       };
     }
 
-    const useTimeAxis = range === 'day';
-
     const scoresOnly = sorted.map((s) => s.score);
     const maxS = Math.max(...scoresOnly, 1);
     const minS = Math.min(...scoresOnly, 0);
@@ -71,54 +78,26 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     const plotW = Math.max(width - padL - padR, 1);
     const plotH = chartH - padT - padB;
 
-    const pts: Point[] = [];
+    const times = sorted.map((s) => new Date(s.completedAt).getTime());
+    const tMin = times[0];
+    const tMax = times[times.length - 1];
+    const tSpan = tMax - tMin;
+    // Duplicate timestamps would share an x — fall back to even index spacing.
+    const hasTimeCollision = times.some((t, i) => i > 0 && t === times[i - 1]);
+    const useIndexX = sorted.length > 1 && (tSpan <= 0 || hasTimeCollision);
 
-    if (useTimeAxis) {
-      const times = sorted.map((s) => new Date(s.completedAt).getTime());
-      const tMin = times[0];
-      const tMax = times[times.length - 1];
-      const tSpan = tMax - tMin;
-
-      sorted.forEach((s, i) => {
-        const t = times[i];
-        const x =
-          sorted.length === 1 || tSpan <= 0
-            ? padL + plotW / 2
-            : padL + ((t - tMin) / tSpan) * plotW;
-        const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
-        pts.push({ x, y, score: s.score, id: s.id });
-      });
-    } else {
-      const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
-      const byDay = new Map<string, SessionScore[]>();
-      for (const s of sorted) {
-        const k = dayKey(s.completedAt);
-        const list = byDay.get(k) ?? [];
-        list.push(s);
-        byDay.set(k, list);
+    const pts: Point[] = sorted.map((s, i) => {
+      let x: number;
+      if (sorted.length === 1) {
+        x = padL + plotW / 2;
+      } else if (useIndexX) {
+        x = padL + (i / (sorted.length - 1)) * plotW;
+      } else {
+        x = padL + ((times[i] - tMin) / tSpan) * plotW;
       }
-
-      const dayCount = uniqueDays.length;
-      for (let di = 0; di < dayCount; di++) {
-        const day = uniqueDays[di];
-        const daySessions = byDay.get(day) ?? [];
-        const dayX =
-          dayCount === 1 ? padL + plotW / 2 : padL + (di / (dayCount - 1)) * plotW;
-
-        daySessions.forEach((s, si) => {
-          // Same calendar day on Week+ still gets a light stagger so segments
-          // aren't zero-length; Day uses true timestamps above instead.
-          const stagger =
-            daySessions.length === 1
-              ? 0
-              : ((si / (daySessions.length - 1)) - 0.5) *
-                Math.min(18, (plotW / Math.max(dayCount, 1)) * 0.35);
-          const x = dayX + stagger;
-          const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
-          pts.push({ x, y, score: s.score, id: s.id });
-        });
-      }
-    }
+      const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
+      return { x, y, score: s.score, id: s.id, completedAt: s.completedAt };
+    });
 
     const segs: { key: string; left: number; top: number; width: number; angle: number }[] = [];
     const stroke = 2.5;
@@ -139,17 +118,21 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       });
     }
 
+    const firstIso = sorted[0].completedAt;
+    const lastIso = sorted[sorted.length - 1].completedAt;
+    const sameDay = dayKey(firstIso) === dayKey(lastIso);
+    // Day range, or a multi-session span that fits one calendar day → time labels.
+    const useTimeLabels = range === 'day' || sameDay;
+
     let labels: string[];
-    if (useTimeAxis) {
-      const first = formatTimeOfDay(sorted[0].completedAt);
-      const last = formatTimeOfDay(sorted[sorted.length - 1].completedAt);
+    if (useTimeLabels) {
+      const first = formatTimeOfDay(firstIso);
+      const last = formatTimeOfDay(lastIso);
       labels = first === last ? [first] : [first, last];
     } else {
-      const uniqueDays = Array.from(new Set(sorted.map((s) => dayKey(s.completedAt))));
-      labels =
-        uniqueDays.length <= 1
-          ? uniqueDays
-          : [uniqueDays[0], uniqueDays[uniqueDays.length - 1]];
+      const first = dayKey(firstIso);
+      const last = dayKey(lastIso);
+      labels = first === last ? [first] : [first, last];
     }
 
     return {
@@ -160,6 +143,8 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       segments: segs,
     };
   }, [sorted, width, range]);
+
+  const selected = points.find((p) => p.id === selectedId) ?? null;
 
   if (scores.length === 0) {
     return (
@@ -173,6 +158,19 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     const w = e.nativeEvent.layout.width;
     if (w > 0 && Math.abs(w - width) > 1) setWidth(w);
   };
+
+  let calloutLeft = 0;
+  let calloutTop = 0;
+  if (selected) {
+    calloutLeft = Math.max(
+      padL,
+      Math.min(selected.x - calloutW / 2, Math.max(padL, width - padR - calloutW)),
+    );
+    calloutTop = selected.y - calloutH - 10;
+    if (calloutTop < 2) {
+      calloutTop = selected.y + 12;
+    }
+  }
 
   return (
     <View style={styles.wrap}>
@@ -199,13 +197,46 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
                 ]}
               />
             ))}
-            {points.map((p) => (
+            {points.map((p) => {
+              const isSelected = p.id === selectedId;
+              return (
+                <Pressable
+                  key={p.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Session score ${p.score}`}
+                  hitSlop={4}
+                  onPress={() => setSelectedId((cur) => (cur === p.id ? null : p.id))}
+                  style={[
+                    styles.dotHit,
+                    {
+                      left: p.x - hit / 2,
+                      top: p.y - hit / 2,
+                      width: hit,
+                      height: hit,
+                    },
+                  ]}
+                >
+                  <View style={[styles.dot, isSelected && styles.dotSelected]} />
+                </Pressable>
+              );
+            })}
+            {selected ? (
               <View
-                key={p.id}
                 pointerEvents="none"
-                style={[styles.dot, { left: p.x - 4, top: p.y - 4 }]}
-              />
-            ))}
+                style={[
+                  styles.callout,
+                  {
+                    left: calloutLeft,
+                    top: calloutTop,
+                    width: calloutW,
+                    height: calloutH,
+                  },
+                ]}
+              >
+                <Text style={styles.calloutText}>{selected.score}</Text>
+              </View>
+            ) : null}
           </View>
           <View style={styles.axisX}>
             <Text style={styles.axisLabel}>{xLabels[0] ?? ''}</Text>
@@ -216,7 +247,9 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
         </View>
       </View>
       <Text style={styles.caption}>
-        {sorted.length} session{sorted.length === 1 ? '' : 's'} · score over time
+        {selected
+          ? `Score ${selected.score} · ${formatTimeOfDay(selected.completedAt)}`
+          : `${sorted.length} session${sorted.length === 1 ? '' : 's'} · score over time`}
       </Text>
     </View>
   );
@@ -279,14 +312,40 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
-  dot: {
+  dotHit: {
     position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.primary,
+  },
+  dotSelected: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  callout: {
+    position: 'absolute',
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+  },
+  calloutText: {
+    color: colors.surface,
+    fontSize: 13,
+    fontWeight: '700',
   },
   axisX: {
     flexDirection: 'row',
