@@ -15,6 +15,7 @@ import { ScoreChart } from '@/components/ScoreChart';
 import { dayKey, filterScores, loadScores } from '@/lib/storage';
 import { colors } from '@/lib/theme';
 import {
+  DEFAULT_DURATION_MINUTES,
   DURATIONS,
   MODES,
   TIME_RANGES,
@@ -35,6 +36,7 @@ function sessionDurationLabel(durationMinutes: number): string {
 
 export default function DashboardScreen() {
   const [mode, setMode] = useState<GameMode>('arithmetic');
+  const [duration, setDuration] = useState<DurationMinutes>(DEFAULT_DURATION_MINUTES);
   const [range, setRange] = useState<TimeRange>('month');
   const [scores, setScores] = useState<SessionScore[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function DashboardScreen() {
     }, []),
   );
 
-  const filtered = filterScores(scores, mode, range);
+  const filtered = filterScores(scores, mode, range, duration);
   const sortedDesc = [...filtered].sort(
     (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
   );
@@ -73,6 +75,16 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Duration</Text>
+          <ChipRow
+            accessibilityPrefix="Duration"
+            chips={DURATIONS.map((d) => ({ id: d, label: durationLabel(d) }))}
+            selected={duration}
+            onSelect={setDuration}
+          />
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionLabel}>Range</Text>
           <ChipRow
             accessibilityPrefix="Range"
@@ -83,11 +95,13 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.heading}>{modeLabel(mode)} scores</Text>
+          <Text style={styles.heading}>
+            {modeLabel(mode)} · {durationLabel(duration)}
+          </Text>
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <ScoreChart scores={filtered} />
+            <ScoreChart scores={filtered} range={range} />
           )}
         </View>
 

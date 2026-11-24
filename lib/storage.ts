@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { GameMode, SessionScore, TimeRange } from '@/lib/types';
+import type {
+  DurationMinutes,
+  GameMode,
+  SessionScore,
+  TimeRange,
+} from '@/lib/types';
 
 const STORAGE_KEY = 'matha.scores.v1';
 
@@ -33,10 +38,13 @@ export function filterScores(
   scores: SessionScore[],
   mode: GameMode,
   range: TimeRange,
+  durationMinutes: DurationMinutes,
   now = new Date(),
 ): SessionScore[] {
-  const byMode = scores.filter((s) => s.mode === mode);
-  if (range === 'all') return byMode;
+  const byModeDuration = scores.filter(
+    (s) => s.mode === mode && s.durationMinutes === durationMinutes,
+  );
+  if (range === 'all') return byModeDuration;
 
   const start = startOfLocalDay(now);
   if (range === 'day') {
@@ -51,7 +59,7 @@ export function filterScores(
   }
 
   const startMs = start.getTime();
-  return byMode.filter((s) => new Date(s.completedAt).getTime() >= startMs);
+  return byModeDuration.filter((s) => new Date(s.completedAt).getTime() >= startMs);
 }
 
 /** Calendar-day key YYYY-MM-DD in local time. */
