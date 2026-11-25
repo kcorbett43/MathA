@@ -2,16 +2,26 @@ import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { dayKey } from '@/lib/storage';
+import {
+  SCORE_CHART_DOT_RADIUS,
+  SCORE_CHART_EDGE_GAP,
+  layoutScorePoints,
+  type ScoreChartPoint,
+} from '@/lib/scoreChartLayout';
 import { colors } from '@/lib/theme';
 import type { SessionScore, TimeRange } from '@/lib/types';
+
+export {
+  SCORE_CHART_DOT_RADIUS,
+  SCORE_CHART_EDGE_GAP,
+  layoutScorePoints,
+} from '@/lib/scoreChartLayout';
 
 type ScoreChartProps = {
   scores: SessionScore[];
   /** Dashboard time range — Day prefers time-of-day axis labels. */
   range: TimeRange;
 };
-
-type Point = { x: number; y: number; score: number; id: string; completedAt: string };
 
 /** Local time-of-day label, e.g. "2:15 PM". */
 function formatTimeOfDay(iso: string): string {
@@ -27,10 +37,9 @@ function formatTimeOfDay(iso: string): string {
  * Drawn with plain RN Views (no react-native-svg) so Expo Go never hits
  * "Unable to resolve module react-native-svg".
  *
- * Callers must filter to a single drill duration (scores aren't comparable
- * across lengths). Points are spaced evenly in chronological order so a
- * burst of same-day drills (and the newest session) never collapse onto one
- * x — wall-clock time only drives the end-axis labels. Tap a point for score.
+ * Callers must filter to a single drill duration. Points are spaced evenly
+ * in chronological order across the plot with enough inset that the newest
+ * (rightmost) and oldest (leftmost) dots stay fully inside the card.
  */
 export function ScoreChart({ scores, range }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
@@ -45,10 +54,7 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
   );
 
   const chartH = 200;
-  const padL = 8;
-  const padR = 12;
-  const padT = 16;
-  const padB = 16;
+  const inset = SCORE_CHART_DOT_RADIUS + SCORE_CHART_EDGE_GAP;
   const hit = 24;
   const calloutW = 44;
   const calloutH = 24;
@@ -56,7 +62,7 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
   const { points, yTop, yBot, xLabels, segments } = useMemo(() => {
     if (sorted.length === 0 || width <= 0) {
       return {
-        points: [] as Point[],
+        points: [] as ScoreChartPoint[],
         yTop: 1,
         yBot: 0,
         xLabels: [] as string[],
@@ -64,26 +70,8 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       };
     }
 
-    const scoresOnly = sorted.map((s) => s.score);
-    const maxS = Math.max(...scoresOnly, 1);
-    const minS = Math.min(...scoresOnly, 0);
-    const span = Math.max(maxS - minS, 1);
-    const yMax = maxS + span * 0.08;
-    const yMin = Math.max(0, minS - span * 0.08);
-
-    const plotW = Math.max(width - padL - padR, 1);
-    const plotH = chartH - padT - padB;
-
-    // Even session-index spacing: timestamp x-axes stack rapid drills and
-    // visually hide newer points when an older outlier stretches the span.
-    const pts: Point[] = sorted.map((s, i) => {
-      const x =
-        sorted.length === 1
-          ? padL + plotW / 2
-          : padL + (i / (sorted.length - 1)) * plotW;
-      const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
-      return { x, y, score: s.score, id: s.id, completedAt: s.completedAt };
-    });
+    const laid = layoutScorePoints(sorted, width, chartH, inset);
+    const pts = laid.points;
 
     const segs: { key: string; left: number; top: number; width: number; angle: number }[] = [];
     const stroke = 2.5;
@@ -94,7 +82,6 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       const dy = b.y - a.y;
       const len = Math.sqrt(dx * dx + dy * dy);
       const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      // Position from segment midpoint so RN's default center transform-origin works.
       segs.push({
         key: `${a.id}-${b.id}`,
         left: (a.x + b.x) / 2 - len / 2,
@@ -107,7 +94,6 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     const firstIso = sorted[0].completedAt;
     const lastIso = sorted[sorted.length - 1].completedAt;
     const sameDay = dayKey(firstIso) === dayKey(lastIso);
-    // Day range, or a multi-session span that fits one calendar day → time labels.
     const useTimeLabels = range === 'day' || sameDay;
 
     let labels: string[];
@@ -123,14 +109,13 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
 
     return {
       points: pts,
-      yTop: Math.round(yMax),
-      yBot: Math.round(yMin),
+      yTop: laid.yTop,
+      yBot: laid.yBot,
       xLabels: labels,
       segments: segs,
     };
-  }, [sorted, width, range]);
+  }, [sorted, width, range, inset]);
 
-  // Drop stale selection when the filtered set changes (no effect/setState).
   const selected = points.find((p) => p.id === selectedId) ?? null;
   const activeSelectedId = selected?.id ?? null;
 
@@ -151,8 +136,8 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
   let calloutTop = 0;
   if (selected) {
     calloutLeft = Math.max(
-      padL,
-      Math.min(selected.x - calloutW / 2, Math.max(padL, width - padR - calloutW)),
+      inset,
+      Math.min(selected.x - calloutW / 2, Math.max(inset, width - inset - calloutW)),
     );
     calloutTop = selected.y - calloutH - 10;
     if (calloutTop < 2) {
@@ -162,14 +147,17 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.chart} onLayout={onLayout}>
+      <View style={styles.chart}>
         <View style={styles.axisY}>
           <Text style={styles.axisLabel}>{yTop}</Text>
           <Text style={styles.axisLabel}>{yBot}</Text>
         </View>
-        <View style={styles.plotCol}>
+        {/* Width of the plot column only — never the full card (Y-axis would skew x). */}
+        <View style={styles.plotCol} onLayout={onLayout}>
           <View style={[styles.plot, { height: chartH }]}>
-            <View style={[styles.baseline, { left: padL, right: padR, bottom: padB }]} />
+            <View
+              style={[styles.baseline, { left: inset, right: inset, bottom: inset }]}
+            />
             {segments.map((seg) => (
               <View
                 key={seg.key}
@@ -267,10 +255,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
+    // Clip to rounded card, but layoutScorePoints insets so dots never meet the edge.
     overflow: 'hidden',
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 8,
-    paddingRight: 4,
+    // Keep plotCol short of the card’s right radius so the newest dot isn’t clipped.
+    paddingRight: 14,
   },
   axisY: {
     width: 36,
@@ -284,6 +274,7 @@ const styles = StyleSheet.create({
   },
   plotCol: {
     flex: 1,
+    minWidth: 0,
   },
   plot: {
     position: 'relative',
