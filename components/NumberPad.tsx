@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 import {
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -70,9 +69,10 @@ function a11yFor(id: KeyId): string {
 
 /**
  * Touch path for Expo Go / native:
- * - Fire on press-*in* (not delayed onPress / release).
- * - Pressable with unstable_pressDelay=0; no haptics / layout thrash.
- * - Press visuals via setNativeProps (no React setState per key).
+ * - Fire on touch *start* (same immediacy as onPressIn; not delayed onPress).
+ * - Use View onTouch* — not Pressable. Pressable’s Pressability claims the
+ *   responder and holding one key locks out other keys / overlapping taps.
+ * - Press visuals via setNativeProps (no React setState per key, no scale).
  *
  * Web keeps pointer/touch-start listeners (already feels snappy there).
  */
@@ -118,7 +118,7 @@ function NumberPadComponent({
 
 export const NumberPad = memo(NumberPadComponent);
 
-/* -------- Native: Pressable onPressIn + native-props press flash -------- */
+/* -------- Native: per-key onTouchStart (no Pressable responder lock) -------- */
 
 function NativePad({
   allowNegative,
@@ -159,6 +159,8 @@ const NativeKey = memo(function NativeKey({
   onActivate: (key: KeyId) => void;
 }) {
   const visualRef = useRef<ViewInstance>(null);
+  // Per-finger ids on this key only — holding one key must not block siblings.
+  const activeTouches = useRef<Set<number>>(new Set());
 
   const paintPressed = (pressed: boolean) => {
     visualRef.current?.setNativeProps({
@@ -171,24 +173,42 @@ const NativeKey = memo(function NativeKey({
   };
 
   return (
-    <Pressable
+    <View
+      ref={visualRef}
+      // Keep a real host view on Android so setNativeProps always hits this node.
+      collapsable={false}
       accessible
       accessibilityRole="button"
       accessibilityLabel={a11yFor(id)}
-      android_disableSound
-      unstable_pressDelay={0}
-      // Activate on finger-down. Skip onPress (waits for release / can feel laggy).
-      onPressIn={() => {
-        paintPressed(true);
-        onActivate(id);
+      style={[styles.keyHit, styles.key]}
+      onTouchStart={(e) => {
+        // Fire on finger-down (onPressIn timing) without claiming the RN responder,
+        // so overlapping / multi-key presses still reach other keys.
+        for (const touch of e.nativeEvent.changedTouches) {
+          const tid = touch.identifier;
+          if (activeTouches.current.has(tid)) continue;
+          activeTouches.current.add(tid);
+          paintPressed(true);
+          onActivate(id);
+        }
       }}
-      onPressOut={() => paintPressed(false)}
-      style={styles.keyHit}
+      onTouchEnd={(e) => {
+        for (const t of e.nativeEvent.changedTouches) {
+          activeTouches.current.delete(t.identifier);
+        }
+        if (activeTouches.current.size === 0) paintPressed(false);
+      }}
+      onTouchCancel={(e) => {
+        for (const t of e.nativeEvent.changedTouches) {
+          activeTouches.current.delete(t.identifier);
+        }
+        if (activeTouches.current.size === 0) paintPressed(false);
+      }}
     >
-      <View ref={visualRef} style={styles.key} pointerEvents="none">
-        <Text style={styles.keyText}>{labelFor(id)}</Text>
-      </View>
-    </Pressable>
+      <Text style={styles.keyText} pointerEvents="none">
+        {labelFor(id)}
+      </Text>
+    </View>
   );
 });
 
