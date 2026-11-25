@@ -45,10 +45,12 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
   );
 
   const chartH = 200;
-  const padL = 8;
-  const padR = 12;
-  const padT = 16;
-  const padB = 16;
+  // Inset from plot edges so first/last dots + hit targets aren't clipped
+  // when the chart card uses overflow hidden for rounded corners.
+  const padL = 16;
+  const padR = 16;
+  const padT = 20;
+  const padB = 20;
   const hit = 24;
   const calloutW = 44;
   const calloutH = 24;
@@ -162,12 +164,13 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.chart} onLayout={onLayout}>
+      <View style={styles.chart}>
         <View style={styles.axisY}>
           <Text style={styles.axisLabel}>{yTop}</Text>
           <Text style={styles.axisLabel}>{yBot}</Text>
         </View>
-        <View style={styles.plotCol}>
+        {/* Measure plotCol only — full-chart width overstated x and clipped rightmost points. */}
+        <View style={styles.plotCol} onLayout={onLayout}>
           <View style={[styles.plot, { height: chartH }]}>
             <View style={[styles.baseline, { left: padL, right: padR, bottom: padB }]} />
             {segments.map((seg) => (
@@ -268,9 +271,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 8,
-    paddingRight: 4,
+    paddingRight: 8,
   },
   axisY: {
     width: 36,
@@ -284,10 +287,12 @@ const styles = StyleSheet.create({
   },
   plotCol: {
     flex: 1,
+    minWidth: 0,
   },
   plot: {
     position: 'relative',
     width: '100%',
+    overflow: 'visible',
   },
   baseline: {
     position: 'absolute',
