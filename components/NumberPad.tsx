@@ -1,5 +1,13 @@
-import { memo, useCallback, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { memo, useCallback, useEffect, useRef } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewInstance,
+  type ViewStyle,
+} from 'react-native';
 
 import { colors } from '@/lib/theme';
 
@@ -43,6 +51,9 @@ const BOTTOM_ROW = (opts: {
   'backspace',
 ];
 
+const KEY_REST_BG = colors.chip;
+const KEY_PRESSED_BG = '#D8DEE6';
+
 function labelFor(id: KeyId): string {
   if (id === 'minus') return '−';
   if (id === 'slash') return '/';
@@ -58,12 +69,12 @@ function a11yFor(id: KeyId): string {
 }
 
 /**
- * Root cause of dropped rapid taps: RN Pressable/Pressability is a one-touch
- * state machine. A second tap that begins before the first press cycle ends
- * is rejected (responder exclusivity). onPress is worse (waits for release).
+ * Touch path for Expo Go / native:
+ * - Fire on press-*in* (not delayed onPress / release).
+ * - Pressable with unstable_pressDelay=0; no haptics / layout thrash.
+ * - Press visuals via setNativeProps (no React setState per key).
  *
- * Fix: fire on every touch *start* via View.onTouchStart (native) and
- * touchstart/pointerdown (web) — no Pressable, no capture hacks that lock.
+ * Web keeps pointer/touch-start listeners (already feels snappy there).
  */
 function NumberPadComponent({
   onDigit,
@@ -74,7 +85,9 @@ function NumberPadComponent({
   allowFraction = false,
 }: NumberPadProps) {
   const handlersRef = useRef({ onDigit, onBackspace, onMinus, onSlash });
-  handlersRef.current = { onDigit, onBackspace, onMinus, onSlash };
+  useEffect(() => {
+    handlersRef.current = { onDigit, onBackspace, onMinus, onSlash };
+  }, [onDigit, onBackspace, onMinus, onSlash]);
 
   const activate = useCallback((key: KeyId) => {
     const h = handlersRef.current;
@@ -105,7 +118,7 @@ function NumberPadComponent({
 
 export const NumberPad = memo(NumberPadComponent);
 
-/* ---------------- Native: onTouchStart per key (no Pressable) ---------------- */
+/* -------- Native: Pressable onPressIn + native-props press flash -------- */
 
 function NativePad({
   allowNegative,
@@ -138,50 +151,46 @@ function NativePad({
   );
 }
 
-function NativeKey({
+const NativeKey = memo(function NativeKey({
   id,
   onActivate,
 }: {
   id: KeyId;
   onActivate: (key: KeyId) => void;
 }) {
-  const [pressed, setPressed] = useState(false);
-  // Track which touch ids already activated this key this contact — not a debounce
-  // across taps; cleared on touch end so a second tap always fires.
-  const activeTouches = useRef<Set<number>>(new Set());
+  const visualRef = useRef<ViewInstance>(null);
+
+  const paintPressed = (pressed: boolean) => {
+    visualRef.current?.setNativeProps({
+      style: {
+        backgroundColor: pressed ? KEY_PRESSED_BG : KEY_REST_BG,
+        // Opacity-only flash — avoid transform/scale layout work on the hot path.
+        opacity: pressed ? 0.92 : 1,
+      },
+    });
+  };
 
   return (
-    <View
+    <Pressable
       accessible
       accessibilityRole="button"
       accessibilityLabel={a11yFor(id)}
-      style={[styles.key, pressed && styles.keyPressed]}
-      onTouchStart={(e) => {
-        const touch = e.nativeEvent.changedTouches[0];
-        if (!touch) return;
-        const tid = touch.identifier;
-        if (activeTouches.current.has(tid)) return;
-        activeTouches.current.add(tid);
-        setPressed(true);
+      android_disableSound
+      unstable_pressDelay={0}
+      // Activate on finger-down. Skip onPress (waits for release / can feel laggy).
+      onPressIn={() => {
+        paintPressed(true);
         onActivate(id);
       }}
-      onTouchEnd={(e) => {
-        for (const t of e.nativeEvent.changedTouches) {
-          activeTouches.current.delete(t.identifier);
-        }
-        if (activeTouches.current.size === 0) setPressed(false);
-      }}
-      onTouchCancel={(e) => {
-        for (const t of e.nativeEvent.changedTouches) {
-          activeTouches.current.delete(t.identifier);
-        }
-        if (activeTouches.current.size === 0) setPressed(false);
-      }}
+      onPressOut={() => paintPressed(false)}
+      style={styles.keyHit}
     >
-      <Text style={styles.keyText}>{labelFor(id)}</Text>
-    </View>
+      <View ref={visualRef} style={styles.key} pointerEvents="none">
+        <Text style={styles.keyText}>{labelFor(id)}</Text>
+      </View>
+    </Pressable>
   );
-}
+});
 
 /* ---------------- Web: touchstart per contact (iOS Safari safe) ------------- */
 
@@ -194,9 +203,11 @@ function WebPad({
   allowFraction: boolean;
   onActivate: (key: KeyId) => void;
 }) {
-  const padRef = useRef<HTMLDivElement | null>(null);
   const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
+  useEffect(() => {
+    onActivateRef.current = onActivate;
+  }, [onActivate]);
+
   // Per-touch-identifier: one activation per finger contact, then clear on end.
   // A new tap = new touchstart → always activates (same key twice is fine).
   const liveTouches = useRef<Set<number>>(new Set());
@@ -207,7 +218,6 @@ function WebPad({
   const setPadRef = useCallback((node: HTMLDivElement | null) => {
     cleanupRef.current?.();
     cleanupRef.current = null;
-    padRef.current = node;
     liveTouches.current.clear();
     if (!node) return;
 
@@ -338,8 +348,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  key: {
+  keyHit: {
     flex: 1,
+  },
+  key: {
     minHeight: 56,
     borderRadius: 12,
     backgroundColor: colors.chip,
@@ -347,11 +359,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } satisfies ViewStyle,
   mutedKey: {
+    flex: 1,
     backgroundColor: 'transparent',
-  },
-  keyPressed: {
-    backgroundColor: '#D8DEE6',
-    transform: [{ scale: 0.97 }],
   },
   keyText: {
     fontSize: 24,
