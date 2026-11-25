@@ -88,7 +88,18 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.container}>
+      {/*
+        Web uses ScrollViewStyleReset (body overflow:hidden). The ScrollView
+        must own a bounded height (flex:1) or the sessions list is clipped
+        under the browser chrome with no way to reach newer rows.
+      */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+        bounces
+      >
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Mode</Text>
           <ChipRow
@@ -130,7 +141,7 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} accessibilityLabel="Sessions list">
           <Text style={styles.sectionLabel}>Sessions</Text>
           {loading ? null : sortedDesc.length === 0 ? (
             <Text style={styles.empty}>No sessions yet for this filter.</Text>
@@ -170,12 +181,19 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: colors.bg,
   },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
   container: {
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 32,
+    // Extra bottom pad so the last session clears mobile browser chrome.
+    paddingBottom: 56,
     gap: 24,
   },
   section: {

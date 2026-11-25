@@ -18,7 +18,9 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: colors.bg },
           headerTintColor: colors.text,
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.bg },
+          // flex:1 + minHeight:0 so nested ScrollViews get a bounded height on web
+          // (otherwise long dashboards clip under body { overflow:hidden }).
+          contentStyle: { flex: 1, minHeight: 0, backgroundColor: colors.bg },
         }}
       >
         <Stack.Screen name="index" options={{ title: 'MathA', headerShown: false }} />
