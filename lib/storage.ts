@@ -114,6 +114,39 @@ export function latestScore(scores: SessionScore[]): SessionScore | null {
   return best;
 }
 
+/**
+ * Highest score for a mode+duration across all stored sessions (ignores date
+ * range). Ties break to the most recent completedAt. Returns null if none.
+ */
+export function topScore(
+  scores: SessionScore[],
+  mode: GameMode,
+  durationMinutes: DurationMinutes,
+): SessionScore | null {
+  let best: SessionScore | null = null;
+  for (const s of scores) {
+    if (s.mode !== mode || Number(s.durationMinutes) !== Number(durationMinutes)) {
+      continue;
+    }
+    if (!Number.isFinite(new Date(s.completedAt).getTime())) continue;
+    if (!best) {
+      best = s;
+      continue;
+    }
+    if (s.score > best.score) {
+      best = s;
+      continue;
+    }
+    if (
+      s.score === best.score &&
+      new Date(s.completedAt).getTime() > new Date(best.completedAt).getTime()
+    ) {
+      best = s;
+    }
+  }
+  return best;
+}
+
 /** Calendar-day key YYYY-MM-DD in local time. */
 export function dayKey(iso: string): string {
   const d = new Date(iso);

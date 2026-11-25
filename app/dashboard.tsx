@@ -12,7 +12,7 @@ import { useFocusEffect } from 'expo-router';
 
 import { ChipRow } from '@/components/ChipRow';
 import { ScoreChart } from '@/components/ScoreChart';
-import { dayKey, filterScores, latestScore, loadScores } from '@/lib/storage';
+import { dayKey, filterScores, latestScore, loadScores, topScore } from '@/lib/storage';
 import { colors } from '@/lib/theme';
 import {
   DEFAULT_DURATION_MINUTES,
@@ -82,6 +82,8 @@ export default function DashboardScreen() {
   );
 
   const filtered = filterScores(scores, mode, range, duration);
+  // Lifetime best for mode+duration — Range only filters chart/list.
+  const allTimeTop = topScore(scores, mode, duration);
   const sortedDesc = [...filtered].sort(
     (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
   );
@@ -131,9 +133,21 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.heading}>
-            {modeLabel(mode)} · {durationLabel(duration)}
-          </Text>
+          <View style={styles.headingRow}>
+            <Text style={styles.heading}>
+              {modeLabel(mode)} · {durationLabel(duration)}
+            </Text>
+            {!loading && allTimeTop ? (
+              <View
+                accessibilityRole="text"
+                accessibilityLabel={`Top score ${allTimeTop.score}`}
+                style={styles.topBadge}
+              >
+                <Text style={styles.topLabel}>Top</Text>
+                <Text style={styles.topValue}>{allTimeTop.score}</Text>
+              </View>
+            ) : null}
+          </View>
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
@@ -206,8 +220,32 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   heading: {
+    flexShrink: 1,
     fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  topBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  topLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  topValue: {
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
   },
