@@ -184,8 +184,16 @@ const NativeKey = memo(function NativeKey({
       onTouchStart={(e) => {
         // Fire on finger-down (onPressIn timing) without claiming the RN responder,
         // so overlapping / multi-key presses still reach other keys.
-        for (const touch of e.nativeEvent.changedTouches) {
+        // changedTouches is shared by every key hit in the same native touch batch;
+        // only touches also in targetTouches landed on this key. Fabric sends
+        // targetTouches but RN's NativeTouchEvent type omits it.
+        const { changedTouches, targetTouches } = e.nativeEvent as typeof e.nativeEvent & {
+          targetTouches?: readonly { identifier: number }[];
+        };
+        const mine = targetTouches && new Set(targetTouches.map((t) => t.identifier));
+        for (const touch of changedTouches) {
           const tid = touch.identifier;
+          if (mine && !mine.has(tid)) continue;
           if (activeTouches.current.has(tid)) continue;
           activeTouches.current.add(tid);
           paintPressed(true);
