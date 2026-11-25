@@ -12,7 +12,7 @@ import { useFocusEffect } from 'expo-router';
 
 import { ChipRow } from '@/components/ChipRow';
 import { ScoreChart } from '@/components/ScoreChart';
-import { dayKey, filterScores, loadScores } from '@/lib/storage';
+import { dayKey, filterScores, latestScore, loadScores } from '@/lib/storage';
 import { colors } from '@/lib/theme';
 import {
   DEFAULT_DURATION_MINUTES,
@@ -21,6 +21,7 @@ import {
   TIME_RANGES,
   durationLabel,
   modeLabel,
+  parseDurationMinutes,
   type DurationMinutes,
   type GameMode,
   type SessionScore,
@@ -34,6 +35,25 @@ function sessionDurationLabel(durationMinutes: number): string {
   return `${durationMinutes} min`;
 }
 
+function asGameMode(value: string): GameMode {
+  if (value === 'arithmeticPro' || value === 'sequence' || value === 'arithmetic') {
+    return value;
+  }
+  return 'arithmetic';
+}
+
+/** Align mode/duration chips with the newest session so it isn't filtered out. */
+function syncChipsToLatest(
+  all: SessionScore[],
+  setMode: (m: GameMode) => void,
+  setDuration: (d: DurationMinutes) => void,
+) {
+  const latest = latestScore(all);
+  if (!latest) return;
+  setMode(asGameMode(latest.mode));
+  setDuration(parseDurationMinutes(String(latest.durationMinutes)));
+}
+
 export default function DashboardScreen() {
   const [mode, setMode] = useState<GameMode>('arithmetic');
   const [duration, setDuration] = useState<DurationMinutes>(DEFAULT_DURATION_MINUTES);
@@ -41,19 +61,24 @@ export default function DashboardScreen() {
   const [scores, setScores] = useState<SessionScore[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const applyScores = useCallback((all: SessionScore[]) => {
+    setScores(all);
+    syncChipsToLatest(all, setMode, setDuration);
+    setLoading(false);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoading(true);
       void loadScores().then((all) => {
         if (!active) return;
-        setScores(all);
-        setLoading(false);
+        applyScores(all);
       });
       return () => {
         active = false;
       };
-    }, []),
+    }, [applyScores]),
   );
 
   const filtered = filterScores(scores, mode, range, duration);
@@ -131,10 +156,7 @@ export default function DashboardScreen() {
           accessibilityLabel="Refresh scores"
           onPress={() => {
             setLoading(true);
-            void loadScores().then((all) => {
-              setScores(all);
-              setLoading(false);
-            });
+            void loadScores().then((all) => applyScores(all));
           }}
           style={({ pressed }) => [styles.refresh, pressed && styles.pressed]}
         >
