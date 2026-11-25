@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 
-import { filterScores, latestScore } from '../lib/storage';
+import { filterScores, latestScore, topScore } from '../lib/storage';
 import type { SessionScore } from '../lib/types';
 
 function score(
@@ -67,6 +67,48 @@ check('filterScores drops invalid completedAt', () => {
   const filtered = filterScores(all, 'arithmetic', 'all', 0.5);
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].id, 'ok');
+});
+
+check('topScore picks highest for mode+duration across all time', () => {
+  const all = [
+    score({
+      id: 'old-high',
+      durationMinutes: 2,
+      completedAt: '2026-01-01T00:00:00.000Z',
+      score: 40,
+    }),
+    score({
+      id: 'recent-low',
+      durationMinutes: 2,
+      completedAt: '2026-11-24T19:00:00.000Z',
+      score: 12,
+    }),
+    score({
+      id: 'other-duration',
+      durationMinutes: 0.5,
+      completedAt: '2026-11-24T20:00:00.000Z',
+      score: 99,
+    }),
+    score({
+      id: 'other-mode',
+      mode: 'sequence',
+      durationMinutes: 2,
+      completedAt: '2026-11-24T21:00:00.000Z',
+      score: 80,
+    }),
+  ];
+  assert.equal(topScore(all, 'arithmetic', 2)?.id, 'old-high');
+  assert.equal(topScore(all, 'arithmetic', 0.5)?.id, 'other-duration');
+  assert.equal(topScore(all, 'sequence', 2)?.id, 'other-mode');
+  assert.equal(topScore(all, 'arithmeticPro', 2), null);
+});
+
+check('topScore ties break to most recent', () => {
+  const all = [
+    score({ id: 'a', durationMinutes: 1, completedAt: '2026-11-01T00:00:00.000Z', score: 20 }),
+    score({ id: 'b', durationMinutes: 1, completedAt: '2026-11-20T00:00:00.000Z', score: 20 }),
+  ];
+  assert.equal(topScore(all, 'arithmetic', 1)?.id, 'b');
 });
 
 console.log('All storage dashboard checks passed.');
