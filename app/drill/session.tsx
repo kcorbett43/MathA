@@ -48,6 +48,7 @@ export default function DrillScreen() {
   const questionRef = useRef(question);
   const correctCountRef = useRef(0);
   const modeRef = useRef(mode);
+  const answerFlushRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -59,9 +60,26 @@ export default function DrillScreen() {
 
   const isStopped = useCallback(() => stoppedRef.current, []);
 
+  const cancelAnswerFlush = useCallback(() => {
+    if (answerFlushRafRef.current != null) {
+      cancelAnimationFrame(answerFlushRafRef.current);
+      answerFlushRafRef.current = null;
+    }
+  }, []);
+
+  /** Coalesce digit paints to one React state write per frame; keep answerRef authoritative. */
+  const scheduleAnswerFlush = useCallback(() => {
+    if (answerFlushRafRef.current != null) return;
+    answerFlushRafRef.current = requestAnimationFrame(() => {
+      answerFlushRafRef.current = null;
+      setAnswer(answerRef.current);
+    });
+  }, []);
+
   const finishSession = useCallback(() => {
     if (stoppedRef.current) return;
     stoppedRef.current = true;
+    cancelAnswerFlush();
     const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     router.replace({
       pathname: '/results',
@@ -73,7 +91,7 @@ export default function DrillScreen() {
         sessionId,
       },
     });
-  }, [durationMinutes]);
+  }, [cancelAnswerFlush, durationMinutes]);
 
   const beginPlaying = useCallback(() => {
     if (stoppedRef.current) return;
@@ -81,26 +99,31 @@ export default function DrillScreen() {
     setTimerRunId((n) => n + 1);
   }, []);
 
-  const commitAnswer = useCallback((next: string) => {
-    if (stoppedRef.current) return;
+  const commitAnswer = useCallback(
+    (next: string) => {
+      if (stoppedRef.current) return;
 
-    // Ref keeps the latest value if taps land before the next paint.
-    answerRef.current = next;
+      // Always buffer in the ref first so rapid onPressIn digits never race React state.
+      answerRef.current = next;
 
-    // Exact string match → score + clear + next question (auto-advance).
-    if (next !== '' && next === questionRef.current.answer) {
-      correctCountRef.current += 1;
-      answerRef.current = '';
-      const nextQuestion = generateQuestion(modeRef.current);
-      questionRef.current = nextQuestion;
-      setCorrectCount(correctCountRef.current);
-      setAnswer('');
-      setQuestion(nextQuestion);
-      return;
-    }
+      // OpenQuant-style: exact string match advances immediately.
+      if (next !== '' && next === questionRef.current.answer) {
+        cancelAnswerFlush();
+        correctCountRef.current += 1;
+        answerRef.current = '';
+        const nextQuestion = generateQuestion(modeRef.current);
+        questionRef.current = nextQuestion;
+        // Flush score + cleared answer + next prompt together (auto-advance UX).
+        setCorrectCount(correctCountRef.current);
+        setAnswer('');
+        setQuestion(nextQuestion);
+        return;
+      }
 
-    setAnswer(next);
-  }, []);
+      scheduleAnswerFlush();
+    },
+    [cancelAnswerFlush, scheduleAnswerFlush],
+  );
 
   const appendDigit = useCallback(
     (digit: string) => {
@@ -127,6 +150,7 @@ export default function DrillScreen() {
   function resetDrill() {
     // Restart in place — do not log a score. Replay 3-2-1 before the clock.
     stoppedRef.current = false;
+    cancelAnswerFlush();
     answerRef.current = '';
     setAnswer('');
     correctCountRef.current = 0;
@@ -141,6 +165,7 @@ export default function DrillScreen() {
   function goHome() {
     // Abandon without logging a score (works during countdown too).
     stoppedRef.current = true;
+    cancelAnswerFlush();
     router.replace('/');
   }
 
