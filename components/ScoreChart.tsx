@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { dayKey } from '@/lib/storage';
@@ -28,9 +28,9 @@ function formatTimeOfDay(iso: string): string {
  * "Unable to resolve module react-native-svg".
  *
  * Callers must filter to a single drill duration (scores aren't comparable
- * across lengths). Every session gets its own x from completedAt (session
- * index if timestamps collide) so same-day drills spread across the plot —
- * never collapsed into a calendar-day bucket. Tap a point to see its score.
+ * across lengths). Points are spaced evenly in chronological order so a
+ * burst of same-day drills (and the newest session) never collapse onto one
+ * x — wall-clock time only drives the end-axis labels. Tap a point for score.
  */
 export function ScoreChart({ scores, range }: ScoreChartProps) {
   const [width, setWidth] = useState(0);
@@ -43,10 +43,6 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
       ),
     [scores],
   );
-
-  useEffect(() => {
-    setSelectedId(null);
-  }, [scores, range]);
 
   const chartH = 200;
   const padL = 8;
@@ -78,23 +74,13 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     const plotW = Math.max(width - padL - padR, 1);
     const plotH = chartH - padT - padB;
 
-    const times = sorted.map((s) => new Date(s.completedAt).getTime());
-    const tMin = times[0];
-    const tMax = times[times.length - 1];
-    const tSpan = tMax - tMin;
-    // Duplicate timestamps would share an x — fall back to even index spacing.
-    const hasTimeCollision = times.some((t, i) => i > 0 && t === times[i - 1]);
-    const useIndexX = sorted.length > 1 && (tSpan <= 0 || hasTimeCollision);
-
+    // Even session-index spacing: timestamp x-axes stack rapid drills and
+    // visually hide newer points when an older outlier stretches the span.
     const pts: Point[] = sorted.map((s, i) => {
-      let x: number;
-      if (sorted.length === 1) {
-        x = padL + plotW / 2;
-      } else if (useIndexX) {
-        x = padL + (i / (sorted.length - 1)) * plotW;
-      } else {
-        x = padL + ((times[i] - tMin) / tSpan) * plotW;
-      }
+      const x =
+        sorted.length === 1
+          ? padL + plotW / 2
+          : padL + (i / (sorted.length - 1)) * plotW;
       const y = padT + plotH - ((s.score - yMin) / (yMax - yMin)) * plotH;
       return { x, y, score: s.score, id: s.id, completedAt: s.completedAt };
     });
@@ -144,7 +130,9 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
     };
   }, [sorted, width, range]);
 
+  // Drop stale selection when the filtered set changes (no effect/setState).
   const selected = points.find((p) => p.id === selectedId) ?? null;
+  const activeSelectedId = selected?.id ?? null;
 
   if (scores.length === 0) {
     return (
@@ -198,7 +186,7 @@ export function ScoreChart({ scores, range }: ScoreChartProps) {
               />
             ))}
             {points.map((p) => {
-              const isSelected = p.id === selectedId;
+              const isSelected = p.id === activeSelectedId;
               return (
                 <Pressable
                   key={p.id}
