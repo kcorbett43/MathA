@@ -51,7 +51,8 @@
     "test:katex": "tsx scripts/test-katex-escape.ts",
     "lint": "expo lint",
     "update:preview": "npx eas-cli@latest update --channel preview --environment preview --message \"preview $(git rev-parse --short HEAD)\" --non-interactive",
-    "deploy:web": "npx expo export --platform web && npx eas-cli@latest deploy --prod --non-interactive"
+    "deploy:web": "npx expo export --platform web && npx eas-cli@latest deploy --prod --non-interactive",
+    "test:competition": "tsx scripts/test-competition.ts"
   },
   "private": true
 }

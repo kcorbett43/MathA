@@ -11,11 +11,11 @@ import {
   MODES,
   durationLabel,
   type DurationMinutes,
-  type GameMode,
+  type DrillMode,
 } from '@/lib/types';
 
 export default function DrillHomeScreen() {
-  const [mode, setMode] = useState<GameMode>('arithmetic');
+  const [mode, setMode] = useState<DrillMode>('arithmetic');
   const [duration, setDuration] = useState<DurationMinutes>(DEFAULT_DURATION_MINUTES);
 
   const selectedBlurb = MODES.find((m) => m.id === mode)?.blurb ?? '';

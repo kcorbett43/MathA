@@ -108,3 +108,32 @@ npx expo start     # Metro bundler
 ```
 
 Product direction: Kevin Corbett. Question generators are original reimplementations inspired by public OpenQuant game behavior — not a copy of their source or question bank.
+
+### Competition practice
+
+Home → **Competition** offers three independent Group D practice events, separate
+from Drill. Each uses the shared 30 sec / 1 / 2 / 3 / 4 / 5 min duration selector
+(default: 3 min), countdown, immediate answer checking, and Reset/Home controls.
+
+| Event | Points per correct answer | Progression |
+| --- | --- | --- |
+| Multiplication | 5 | One-digit factors through three-digit × three-digit |
+| Division | 5 | Exact integer quotients, progressing to three-digit quotient and divisor |
+| Addition & Subtraction | 10 | Signed vertical sums, progressing to ten operands with two decimal places |
+
+The generators infer operand digit widths and signs from the 60-question
+[USMMF Group D sample sheets](https://www.usmentalmath.org/events/competitions/).
+They generate fresh operands, rather than replaying the sample questions. After
+question 60 the last question's difficulty repeats indefinitely. This is practice
+based on the published samples, not an official MM Go implementation.
+
+Correct answers advance automatically. Mistakes can be edited with backspace;
+there is no skip or combined event. Decimal answers accept equivalent forms
+(e.g. `12.3` for `12.30`). Reset discards the current session and restarts at
+question 1; Home abandons without saving. Completed sessions save points and
+correct counts, with dashboard histories filtered by event and duration. Existing
+Drill scores keep their original correct-count scoring.
+
+Run `npm run test:competition` for generator, progression, scoring, decimal, and
+duration checks. In runtimes that block tsx's IPC socket, run
+`node --import tsx scripts/test-competition.ts` instead.

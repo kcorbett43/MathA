@@ -29,6 +29,8 @@ export default function RootLayout() {
           name="drill/session"
           options={{ title: 'Drill', headerBackTitle: 'Drill' }}
         />
+        <Stack.Screen name="competition/index" options={{ title: 'Competition', headerBackTitle: 'Home' }} />
+        <Stack.Screen name="competition/session" options={{ title: 'Competition', headerBackTitle: 'Competition' }} />
         <Stack.Screen name="results" options={{ title: 'Results', headerBackVisible: false }} />
         <Stack.Screen
           name="dashboard"

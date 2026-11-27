@@ -30,6 +30,22 @@ export default function HomeScreen() {
             </Pressable>
           </Link>
 
+          <Link href="/competition" asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open Competition"
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>Competition</Text>
+                <Text style={styles.rowBlurb}>
+                  Multiplication, division, and addition & subtraction — progressive Group D practice
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          </Link>
+
           <Link href="/quant" asChild>
             <Pressable
               accessibilityRole="button"
