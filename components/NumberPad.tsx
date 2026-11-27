@@ -15,6 +15,8 @@ type NumberPadProps = {
   onBackspace: () => void;
   onMinus?: () => void;
   onSlash?: () => void;
+  onDecimal?: () => void;
+  allowDecimal?: boolean;
   allowNegative?: boolean;
   /** Show `/` on the bottom-left (for fraction answers). Mutually preferred over minus when both set. */
   allowFraction?: boolean;
@@ -33,6 +35,7 @@ type KeyId =
   | '9'
   | 'minus'
   | 'slash'
+  | 'decimal'
   | 'backspace';
 
 const DIGIT_ROWS: KeyId[][] = [
@@ -44,9 +47,11 @@ const DIGIT_ROWS: KeyId[][] = [
 const BOTTOM_ROW = (opts: {
   allowNegative: boolean;
   allowFraction: boolean;
+  allowDecimal: boolean;
 }): (KeyId | null)[] => [
   opts.allowFraction ? 'slash' : opts.allowNegative ? 'minus' : null,
   '0',
+  ...(opts.allowDecimal ? ['decimal' as const] : []),
   'backspace',
 ];
 
@@ -56,6 +61,7 @@ const KEY_PRESSED_BG = '#D8DEE6';
 function labelFor(id: KeyId): string {
   if (id === 'minus') return '−';
   if (id === 'slash') return '/';
+  if (id === 'decimal') return '.';
   if (id === 'backspace') return '⌫';
   return id;
 }
@@ -63,6 +69,7 @@ function labelFor(id: KeyId): string {
 function a11yFor(id: KeyId): string {
   if (id === 'minus') return 'Negative sign';
   if (id === 'slash') return 'Fraction slash';
+  if (id === 'decimal') return 'Decimal point';
   if (id === 'backspace') return 'Backspace';
   return `Digit ${id}`;
 }
@@ -81,19 +88,22 @@ function NumberPadComponent({
   onBackspace,
   onMinus,
   onSlash,
+  onDecimal,
+  allowDecimal = false,
   allowNegative = true,
   allowFraction = false,
 }: NumberPadProps) {
-  const handlersRef = useRef({ onDigit, onBackspace, onMinus, onSlash });
+  const handlersRef = useRef({ onDigit, onBackspace, onMinus, onSlash, onDecimal });
   useEffect(() => {
-    handlersRef.current = { onDigit, onBackspace, onMinus, onSlash };
-  }, [onDigit, onBackspace, onMinus, onSlash]);
+    handlersRef.current = { onDigit, onBackspace, onMinus, onSlash, onDecimal };
+  }, [onDigit, onBackspace, onMinus, onSlash, onDecimal]);
 
   const activate = useCallback((key: KeyId) => {
     const h = handlersRef.current;
     if (key === 'backspace') h.onBackspace();
     else if (key === 'minus') h.onMinus?.();
     else if (key === 'slash') h.onSlash?.();
+    else if (key === 'decimal') h.onDecimal?.();
     else h.onDigit(key);
   }, []);
 
@@ -101,6 +111,7 @@ function NumberPadComponent({
     return (
       <WebPad
         allowNegative={allowNegative}
+        allowDecimal={allowDecimal}
         allowFraction={allowFraction}
         onActivate={activate}
       />
@@ -110,6 +121,7 @@ function NumberPadComponent({
   return (
     <NativePad
       allowNegative={allowNegative}
+      allowDecimal={allowDecimal}
       allowFraction={allowFraction}
       onActivate={activate}
     />
@@ -123,10 +135,12 @@ export const NumberPad = memo(NumberPadComponent);
 function NativePad({
   allowNegative,
   allowFraction,
+  allowDecimal,
   onActivate,
 }: {
   allowNegative: boolean;
   allowFraction: boolean;
+  allowDecimal: boolean;
   onActivate: (key: KeyId) => void;
 }) {
   return (
@@ -139,7 +153,7 @@ function NativePad({
         </View>
       ))}
       <View style={styles.row}>
-        {BOTTOM_ROW({ allowNegative, allowFraction }).map((key, i) =>
+        {BOTTOM_ROW({ allowNegative, allowFraction, allowDecimal }).map((key, i) =>
           key ? (
             <NativeKey key={key} id={key} onActivate={onActivate} />
           ) : (
@@ -225,10 +239,12 @@ const NativeKey = memo(function NativeKey({
 function WebPad({
   allowNegative,
   allowFraction,
+  allowDecimal,
   onActivate,
 }: {
   allowNegative: boolean;
   allowFraction: boolean;
+  allowDecimal: boolean;
   onActivate: (key: KeyId) => void;
 }) {
   const onActivateRef = useRef(onActivate);
@@ -307,7 +323,7 @@ function WebPad({
         </div>
       ))}
       <div style={webRowStyle}>
-        {BOTTOM_ROW({ allowNegative, allowFraction }).map((key, i) =>
+        {BOTTOM_ROW({ allowNegative, allowFraction, allowDecimal }).map((key, i) =>
           key ? <WebKey key={key} id={key} /> : <div key={`spacer-${i}`} style={webSpacerStyle} />,
         )}
       </div>

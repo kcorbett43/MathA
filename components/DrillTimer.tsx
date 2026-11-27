@@ -27,21 +27,17 @@ function DrillTimerComponent({
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
 
   useEffect(() => {
-    setSecondsLeft(totalSeconds);
     if (!active) return;
 
+    const deadline = Date.now() + totalSeconds * 1000;
     const id = setInterval(() => {
       if (isStopped()) {
         clearInterval(id);
         return;
       }
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(id);
-          return 0;
-        }
-        return prev - 1;
-      });
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0) clearInterval(id);
     }, 1000);
     return () => clearInterval(id);
   }, [runId, totalSeconds, active, isStopped]);
@@ -63,7 +59,9 @@ function DrillTimerComponent({
   );
 }
 
-export const DrillTimer = memo(DrillTimerComponent);
+export const DrillTimer = memo(function DrillTimer(props: DrillTimerProps) {
+  return <DrillTimerComponent key={`${props.runId}-${props.active}-${props.totalSeconds}`} {...props} />;
+});
 
 const styles = StyleSheet.create({
   block: {

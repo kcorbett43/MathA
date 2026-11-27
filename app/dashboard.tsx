@@ -17,7 +17,9 @@ import { colors } from '@/lib/theme';
 import {
   DEFAULT_DURATION_MINUTES,
   DURATIONS,
-  MODES,
+  ALL_MODES,
+  parseGameMode,
+  isCompetitionMode,
   TIME_RANGES,
   durationLabel,
   modeLabel,
@@ -35,13 +37,6 @@ function sessionDurationLabel(durationMinutes: number): string {
   return `${durationMinutes} min`;
 }
 
-function asGameMode(value: string): GameMode {
-  if (value === 'arithmeticPro' || value === 'sequence' || value === 'arithmetic') {
-    return value;
-  }
-  return 'arithmetic';
-}
-
 /** Align mode/duration chips with the newest session so it isn't filtered out. */
 function syncChipsToLatest(
   all: SessionScore[],
@@ -50,7 +45,7 @@ function syncChipsToLatest(
 ) {
   const latest = latestScore(all);
   if (!latest) return;
-  setMode(asGameMode(latest.mode));
+  setMode(parseGameMode(latest.mode));
   setDuration(parseDurationMinutes(String(latest.durationMinutes)));
 }
 
@@ -106,7 +101,7 @@ export default function DashboardScreen() {
           <Text style={styles.sectionLabel}>Mode</Text>
           <ChipRow
             accessibilityPrefix="Mode"
-            chips={MODES.map((m) => ({ id: m.id, label: m.label }))}
+            chips={ALL_MODES.map((m) => ({ id: m.id, label: m.label }))}
             selected={mode}
             onSelect={setMode}
           />
@@ -148,6 +143,7 @@ export default function DashboardScreen() {
               </View>
             ) : null}
           </View>
+          {isCompetitionMode(mode) && <Text style={styles.empty}>Scores shown in points</Text>}
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
@@ -169,7 +165,9 @@ export default function DashboardScreen() {
                       {dayKey(s.completedAt)} · {sessionDurationLabel(s.durationMinutes)}
                     </Text>
                   </View>
-                  <Text style={styles.rowAttempted}>{s.score} correct</Text>
+                  <Text style={styles.rowAttempted}>
+                    {isCompetitionMode(s.mode) ? `${s.score} points · ${s.correct ?? s.attempted} correct` : `${s.score} correct`}
+                  </Text>
                 </View>
               ))}
             </View>

@@ -8,8 +8,10 @@ import { colors } from '@/lib/theme';
 import {
   durationLabel,
   modeLabel,
+  parseGameMode,
+  isCompetitionMode,
+  pointsPerCorrect,
   parseDurationMinutes,
-  type GameMode,
 } from '@/lib/types';
 
 function asString(value: string | string[] | undefined): string {
@@ -19,14 +21,6 @@ function asString(value: string | string[] | undefined): string {
 function asNumber(value: string | string[] | undefined): number {
   const n = Number.parseInt(asString(value) || '0', 10);
   return Number.isFinite(n) ? n : 0;
-}
-
-function parseMode(raw: string | string[] | undefined): GameMode {
-  const value = asString(raw);
-  if (value === 'arithmeticPro' || value === 'sequence' || value === 'arithmetic') {
-    return value;
-  }
-  return 'arithmetic';
 }
 
 export default function ResultsScreen() {
@@ -41,7 +35,9 @@ export default function ResultsScreen() {
   const correct = asNumber(params.correct);
   const attempted = asNumber(params.attempted);
   const durationMinutes = parseDurationMinutes(params.duration);
-  const mode = parseMode(params.mode);
+  const mode = parseGameMode(params.mode);
+  const competition = isCompetitionMode(mode);
+  const score = correct * pointsPerCorrect(mode);
   const sessionId = asString(params.sessionId) || `fallback-${correct}-${attempted}-${mode}`;
   const savedRef = useRef(false);
 
@@ -55,12 +51,13 @@ export default function ResultsScreen() {
         id: sessionId,
         mode,
         durationMinutes,
-        score: correct,
+        score,
+        correct,
         attempted,
         completedAt: new Date().toISOString(),
       });
     })();
-  }, [attempted, correct, durationMinutes, mode, sessionId]);
+  }, [attempted, correct, durationMinutes, mode, score, sessionId]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -72,11 +69,13 @@ export default function ResultsScreen() {
           </Text>
 
           <View style={styles.scoreBlock}>
-            <Text style={styles.scoreValue}>{correct}</Text>
-            <Text style={styles.scoreLabel}>Correct answers</Text>
+            <Text style={styles.scoreValue}>{score}</Text>
+            <Text style={styles.scoreLabel}>{competition ? 'Points' : 'Correct answers'}</Text>
           </View>
 
-          <Text style={styles.detail}>Score is raw correct count (exact match to advance)</Text>
+          <Text style={styles.detail}>{competition
+            ? `${correct} correct answers · ${pointsPerCorrect(mode)} points each`
+            : 'Score is raw correct count (exact match to advance)'}</Text>
         </View>
 
         <View style={styles.actions}>
@@ -84,7 +83,7 @@ export default function ResultsScreen() {
             accessibilityRole="button"
             onPress={() =>
               router.replace({
-                pathname: '/drill/session',
+                pathname: competition ? '/competition/session' : '/drill/session',
                 params: { mode, duration: String(durationMinutes) },
               })
             }

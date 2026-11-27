@@ -1,27 +1,22 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DrillTimer } from '@/components/DrillTimer';
 import { NumberPad } from '@/components/NumberPad';
 import { StartCountdown } from '@/components/StartCountdown';
+import { competitionAnswerMatches } from '@/lib/generators/competition';
 import { generateQuestion } from '@/lib/generators';
 import { colors } from '@/lib/theme';
 import {
   modeLabel,
+  parseGameMode,
+  isCompetitionMode,
+  pointsPerCorrect,
   parseDurationMinutes,
-  type GameMode,
   type Question,
 } from '@/lib/types';
-
-function parseMode(raw: string | string[] | undefined): GameMode {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  if (value === 'arithmeticPro' || value === 'sequence' || value === 'arithmetic') {
-    return value;
-  }
-  return 'arithmetic';
-}
 
 const MAX_ANSWER_LEN = 10;
 
@@ -29,11 +24,12 @@ type Phase = 'countdown' | 'playing';
 
 export default function DrillScreen() {
   const params = useLocalSearchParams<{ mode?: string; duration?: string }>();
-  const mode = useMemo(() => parseMode(params.mode), [params.mode]);
+  const mode = useMemo(() => parseGameMode(params.mode), [params.mode]);
   const durationMinutes = useMemo(
     () => parseDurationMinutes(params.duration),
     [params.duration],
   );
+  const competition = isCompetitionMode(mode);
   const totalSeconds = durationMinutes * 60;
 
   const [phase, setPhase] = useState<Phase>('countdown');
@@ -43,6 +39,7 @@ export default function DrillScreen() {
   const [answer, setAnswer] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
 
+  const deadlineRef = useRef<number | null>(null);
   const stoppedRef = useRef(false);
   const answerRef = useRef('');
   const questionRef = useRef(question);
@@ -57,6 +54,10 @@ export default function DrillScreen() {
   useEffect(() => {
     questionRef.current = question;
   }, [question]);
+
+  useEffect(() => () => {
+    if (answerFlushRafRef.current != null) cancelAnimationFrame(answerFlushRafRef.current);
+  }, []);
 
   const isStopped = useCallback(() => stoppedRef.current, []);
 
@@ -95,23 +96,32 @@ export default function DrillScreen() {
 
   const beginPlaying = useCallback(() => {
     if (stoppedRef.current) return;
+    deadlineRef.current = Date.now() + totalSeconds * 1000;
     setPhase('playing');
     setTimerRunId((n) => n + 1);
-  }, []);
+  }, [totalSeconds]);
 
   const commitAnswer = useCallback(
     (next: string) => {
       if (stoppedRef.current) return;
 
+      if (deadlineRef.current == null) return;
+      if (Date.now() >= deadlineRef.current) {
+        finishSession();
+        return;
+      }
+
       // Always buffer in the ref first so rapid onPressIn digits never race React state.
       answerRef.current = next;
 
       // OpenQuant-style: exact string match advances immediately.
-      if (next !== '' && next === questionRef.current.answer) {
+      if (next !== '' && (isCompetitionMode(modeRef.current)
+        ? competitionAnswerMatches(next, questionRef.current.answer)
+        : next === questionRef.current.answer)) {
         cancelAnswerFlush();
         correctCountRef.current += 1;
         answerRef.current = '';
-        const nextQuestion = generateQuestion(modeRef.current);
+        const nextQuestion = generateQuestion(modeRef.current, correctCountRef.current);
         questionRef.current = nextQuestion;
         // Flush score + cleared answer + next prompt together (auto-advance UX).
         setCorrectCount(correctCountRef.current);
@@ -122,7 +132,7 @@ export default function DrillScreen() {
 
       scheduleAnswerFlush();
     },
-    [cancelAnswerFlush, scheduleAnswerFlush],
+    [cancelAnswerFlush, scheduleAnswerFlush, finishSession],
   );
 
   const appendDigit = useCallback(
@@ -138,6 +148,13 @@ export default function DrillScreen() {
     [commitAnswer],
   );
 
+  const appendDecimal = useCallback(() => {
+    const current = answerRef.current;
+    if (!current.includes('.')) {
+      commitAnswer(current === '' ? '0.' : current === '-' ? '-0.' : `${current}.`);
+    }
+  }, [commitAnswer]);
+
   const toggleMinus = useCallback(() => {
     const current = answerRef.current;
     commitAnswer(current.startsWith('-') ? current.slice(1) : `-${current}`);
@@ -149,13 +166,14 @@ export default function DrillScreen() {
 
   function resetDrill() {
     // Restart in place — do not log a score. Replay 3-2-1 before the clock.
+    deadlineRef.current = null;
     stoppedRef.current = false;
     cancelAnswerFlush();
     answerRef.current = '';
     setAnswer('');
     correctCountRef.current = 0;
     setCorrectCount(0);
-    const nextQuestion = generateQuestion(modeRef.current);
+    const nextQuestion = generateQuestion(modeRef.current, correctCountRef.current);
     questionRef.current = nextQuestion;
     setQuestion(nextQuestion);
     setPhase('countdown');
@@ -183,13 +201,14 @@ export default function DrillScreen() {
             isStopped={isStopped}
           />
           <View style={styles.metaBlock}>
-            <Text style={styles.metaLabel}>Score</Text>
-            <Text style={styles.metaValue}>{correctCount}</Text>
+            <Text style={styles.metaLabel}>{competition ? 'Points' : 'Score'}</Text>
+            <Text style={styles.metaValue}>{correctCount * pointsPerCorrect(mode)}</Text>
+            {competition && <Text style={styles.metaLabel}>{correctCount} correct</Text>}
           </View>
           <View style={styles.metaBlock}>
             <Text style={styles.metaLabel}>Mode</Text>
-            <Text style={styles.metaMode} numberOfLines={1}>
-              {modeLabel(mode)}
+            <Text style={styles.metaMode} numberOfLines={2}>
+              {modeLabel(mode).replace('Competition ', '')}
             </Text>
           </View>
           <View style={styles.actionsCol}>
@@ -204,7 +223,7 @@ export default function DrillScreen() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Reset drill"
+              accessibilityLabel={competition ? "Reset competition" : "Reset drill"}
               onPress={resetDrill}
               hitSlop={8}
               style={({ pressed }) => [styles.chipBtn, pressed && styles.chipPressed]}
@@ -218,8 +237,14 @@ export default function DrillScreen() {
           <StartCountdown key={countdownKey} onComplete={beginPlaying} />
         ) : (
           <>
-            <View style={styles.promptBlock}>
-              <Text
+            <ScrollView style={styles.promptScroll} contentContainerStyle={styles.promptBlock}>
+              {question.terms ? (
+                <View accessibilityLabel="Vertical sum" style={styles.stack}>
+                  {question.terms.map((term, index) => (
+                    <Text key={index} style={styles.stackTerm}>{term}</Text>
+                  ))}
+                </View>
+              ) : <Text
                 style={[
                   styles.prompt,
                   mode === 'arithmeticPro' && styles.promptPro,
@@ -227,14 +252,16 @@ export default function DrillScreen() {
                 ]}
               >
                 {question.prompt}
-              </Text>
+              </Text>}
               <View style={styles.answerBox}>
                 <Text style={styles.answerText}>{answer || ' '}</Text>
               </View>
-            </View>
+            </ScrollView>
 
             <NumberPad
               allowNegative
+              allowDecimal={mode === 'competitionAddition'}
+              onDecimal={appendDecimal}
               onDigit={appendDigit}
               onMinus={toggleMinus}
               onBackspace={backspace}
@@ -305,10 +332,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  promptScroll: { flex: 1 },
+  stack: { alignItems: 'stretch', minWidth: 140 },
+  stackTerm: { fontSize: 20, lineHeight: 23, fontVariant: ['tabular-nums'], textAlign: 'right', color: colors.text },
   promptBlock: {
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
-    paddingVertical: 16,
+    gap: 8,
+    paddingVertical: 10,
   },
   prompt: {
     fontSize: 40,
