@@ -137,3 +137,14 @@ Drill scores keep their original correct-count scoring.
 Run `npm run test:competition` for generator, progression, scoring, decimal, and
 duration checks. In runtimes that block tsx's IPC socket, run
 `node --import tsx scripts/test-competition.ts` instead.
+
+### Automatic Expo preview publishing
+
+Pushes to `main` (including merged pull requests) run
+[Publish Expo preview](.github/workflows/expo-preview.yml). The workflow checks
+that GitHub can access the existing `EXPO_TOKEN` Actions secret, installs from the
+lockfile, runs typecheck and all test scripts, verifies Expo authentication, and
+publishes with `npm run update:preview`. It can also be started manually from
+GitHub Actions. Failed checks stop publishing. Updates go to the existing
+`preview` channel and `preview` EAS environment. The secret stays in GitHub; no
+local Expo login is required.

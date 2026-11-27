@@ -1,0 +1,66 @@
+name: Publish Expo preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matha-expo-preview
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check Expo token availability
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is not available to this workflow. Check repository or organization Actions secrets."
+            exit 1
+          fi
+          echo "EXPO_TOKEN is available. Its value will not be displayed."
+
+      - name: Checkout source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: |
+          npm run test:competition
+          npm run test:matha
+          npm run test:review
+          npm run test:katex
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo account access
+        run: npx --yes eas-cli@latest whoami
+
+      - name: Publish preview update
+        run: npm run update:preview
